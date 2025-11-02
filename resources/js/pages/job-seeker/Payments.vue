@@ -3,10 +3,10 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { subscriptions } from '@/routes';
+import { payments } from '@/routes';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
-import { CreditCard, CheckCircle2, Crown, X, Play, ArrowUp } from 'lucide-vue-next';
+import { CreditCard, CheckCircle2, Sparkles, Zap, ArrowUp } from 'lucide-vue-next';
 import { computed } from 'vue';
 
 interface Props {
@@ -29,27 +29,15 @@ interface Props {
             display_name: string;
             amount: number;
         };
-        ends_at: string | null;
-        cancel_at_period_end: boolean;
     } | null;
-    subscriptions: Array<{
-        id: number;
-        status: string;
-        payment_plan: {
-            id: number;
-            name: string;
-            display_name: string;
-            amount: number;
-        };
-    }>;
 }
 
 const props = defineProps<Props>();
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Subscriptions',
-        href: subscriptions().url,
+        title: 'Payments',
+        href: payments().url,
     },
 ];
 
@@ -81,12 +69,7 @@ const isButtonEnabled = (plan: { id: number; amount: number }) => {
     }
     
     // Premium plan: enabled if on free plan (can upgrade) or no subscription
-    // Also allow if subscription is set to cancel at period end
-    const canSwitch = canUpgrade.value || 
-                      !props.activeSubscription || 
-                      (props.activeSubscription?.cancel_at_period_end === true);
-    
-    return canSwitch;
+    return canUpgrade.value || !props.activeSubscription;
 };
 
 // Get button text
@@ -154,20 +137,6 @@ const handleCheckout = async (planId: number) => {
     }
 };
 
-const handleCancel = (subscriptionId: number) => {
-    if (confirm('Are you sure you want to cancel your subscription? It will remain active until the end of the billing period.')) {
-        router.post(`/subscription/${subscriptionId}/cancel`);
-    }
-};
-
-const handleResume = (subscriptionId: number) => {
-    router.post(`/subscription/${subscriptionId}/resume`);
-};
-
-const handleBillingPortal = () => {
-    router.get('/payment/billing-portal');
-};
-
 const formatPrice = (amount: number, currency: string) => {
     return new Intl.NumberFormat('en-US', {
         style: 'currency',
@@ -181,77 +150,45 @@ const getFirstPremiumPlan = () => {
 </script>
 
 <template>
-    <Head title="Subscriptions" />
+    <Head title="Premium Features" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-6 p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold tracking-tight">Manage Subscriptions</h1>
-                    <p class="text-muted-foreground mt-2">
-                        View and manage your subscription plans and billing
-                    </p>
-                </div>
-                <Button v-if="activeSubscription && !isFreePlan" @click="handleBillingPortal" variant="outline">
-                    <CreditCard class="h-4 w-4 mr-2" />
-                    Billing Portal
-                </Button>
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight">Premium Features</h1>
+                <p class="text-muted-foreground mt-2">
+                    Unlock premium features to enhance your job search experience
+                </p>
             </div>
 
             <!-- Current Subscription Card -->
             <Card v-if="activeSubscription" :class="['shadow-sm', isFreePlan ? 'border-yellow-500' : 'border-primary']">
                 <CardHeader>
-                    <CardTitle class="flex items-center justify-between">
-                        <span class="flex items-center gap-2">
-                            <Crown class="h-5 w-5" :class="isFreePlan ? 'text-yellow-500' : 'text-primary'" />
-                            Current Subscription: {{ activeSubscription.payment_plan.display_name }}
-                            <Badge v-if="isFreePlan" class="ml-2 bg-yellow-500 text-white">
-                                Free Plan
-                            </Badge>
-                        </span>
-                        <Badge :class="activeSubscription.status === 'active' ? 'bg-green-500' : 'bg-yellow-500'">
-                            {{ activeSubscription.status }}
+                    <CardTitle class="flex items-center gap-2">
+                        <Sparkles class="h-5 w-5" :class="isFreePlan ? 'text-yellow-500' : 'text-primary'" />
+                        Active Plan: {{ activeSubscription.payment_plan.display_name }}
+                        <Badge v-if="isFreePlan" class="ml-2 bg-yellow-500 text-white">
+                            Free Plan
                         </Badge>
                     </CardTitle>
                     <CardDescription>
-                        {{ formatPrice(activeSubscription.payment_plan.amount, 'USD') }} per {{ activeSubscription.payment_plan.amount === 0 ? 'month (Free)' : 'month' }}
-                        <span v-if="activeSubscription.ends_at && !isFreePlan">
-                            • Renews on {{ new Date(activeSubscription.ends_at).toLocaleDateString() }}
-                        </span>
-                        <span v-if="isFreePlan" class="block mt-2 text-primary font-medium">
+                        <span v-if="isFreePlan" class="text-primary font-medium">
                             Upgrade to unlock premium features!
+                        </span>
+                        <span v-else>
+                            You have access to premium features
                         </span>
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <div class="flex gap-2">
-                        <Button 
-                            v-if="isFreePlan && getFirstPremiumPlan()"
-                            @click="handleCheckout(getFirstPremiumPlan()!.id)"
-                            class="flex-1"
-                        >
-                            <ArrowUp class="h-4 w-4 mr-2" />
-                            Upgrade to Premium
-                        </Button>
-                        <template v-else-if="!isFreePlan">
-                            <Button 
-                                v-if="activeSubscription.cancel_at_period_end"
-                                @click="handleResume(activeSubscription.id)"
-                                variant="outline"
-                            >
-                                <Play class="h-4 w-4 mr-2" />
-                                Resume Subscription
-                            </Button>
-                            <Button 
-                                v-else
-                                @click="handleCancel(activeSubscription.id)"
-                                variant="destructive"
-                            >
-                                <X class="h-4 w-4 mr-2" />
-                                Cancel Subscription
-                            </Button>
-                        </template>
-                    </div>
+                <CardContent v-if="isFreePlan">
+                    <Button 
+                        v-if="getFirstPremiumPlan()"
+                        @click="handleCheckout(getFirstPremiumPlan()!.id)"
+                        class="w-full"
+                    >
+                        <ArrowUp class="h-4 w-4 mr-2" />
+                        Upgrade to Premium
+                    </Button>
                 </CardContent>
             </Card>
 
@@ -270,12 +207,16 @@ const getFirstPremiumPlan = () => {
                     >
                         <CardHeader>
                             <CardTitle class="flex items-center gap-2">
-                                <Crown :class="[
-                                    'h-5 w-5',
-                                    plan.name === 'basic' ? 'text-yellow-500' : 
-                                    plan.name === 'professional' ? 'text-primary' : 
-                                    'text-purple-500'
-                                ]" />
+                                <component
+                                    :is="plan.name === 'basic' ? Sparkles : 
+                                         plan.name === 'professional' ? CreditCard : Zap"
+                                    :class="[
+                                        'h-5 w-5',
+                                        plan.name === 'basic' ? 'text-blue-500' : 
+                                        plan.name === 'professional' ? 'text-primary' : 
+                                        'text-purple-500'
+                                    ]"
+                                />
                                 {{ plan.display_name }}
                                 <Badge v-if="isCurrentPlan(plan.id)" class="ml-auto bg-primary text-white">
                                     Current
@@ -284,12 +225,7 @@ const getFirstPremiumPlan = () => {
                                     Upgrade Available
                                 </Badge>
                             </CardTitle>
-                            <CardDescription>
-                                <span v-if="isCurrentPlan(plan.id)" class="text-primary font-semibold">
-                                    Current Plan
-                                </span>
-                                <span v-else>{{ plan.description || '' }}</span>
-                            </CardDescription>
+                            <CardDescription>{{ plan.description || '' }}</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div class="text-2xl font-bold mb-2">
@@ -316,7 +252,7 @@ const getFirstPremiumPlan = () => {
                                 :class="'w-full'"
                                 :disabled="!isButtonEnabled(plan)"
                             >
-                                <ArrowUp v-if="canUpgrade && plan.amount > 0 && !isCurrentPlan(plan.id)" class="h-4 w-4 mr-2" />
+                                <ArrowUp v-if="canUpgrade && plan.amount > 0" class="h-4 w-4 mr-2" />
                                 {{ getButtonText(plan) }}
                             </Button>
                         </CardContent>

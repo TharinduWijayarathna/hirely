@@ -91,6 +91,11 @@ const jobSeekerNavItems: NavItem[] = [
         title: 'Job Applications',
         href: jobApplications(),
         icon: FileSearch,
+    },
+    {
+        title: 'Premium Features',
+        href: '/payments',
+        icon: CreditCard,
     }
 ];
 

@@ -1,12 +1,14 @@
 <?php
 
 use App\Http\Controllers\Admin\CompanyController;
+use App\Http\Controllers\Admin\PaymentController as AdminPaymentController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\HR\CandidateController;
 use App\Http\Controllers\HR\JobController;
 use App\Http\Controllers\JobSeeker\JobApplicationController;
 use App\Http\Controllers\JobSeeker\PortfolioController;
 use App\Http\Controllers\JobSeeker\SkillExpectationController;
+use App\Http\Controllers\Payment\PaymentController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -61,10 +63,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('job-applications', [JobApplicationController::class, 'store'])->name('job-applications.store');
     Route::delete('job-applications/{jobApplication}', [JobApplicationController::class, 'destroy'])->name('job-applications.destroy');
 
-    // HR Professional Routes
-    Route::get('subscriptions', function () {
-        return Inertia::render('hr/Subscriptions');
-    })->name('subscriptions');
+    // Payment Routes (HR and Job Seekers)
+    Route::get('subscriptions', [PaymentController::class, 'index'])->name('subscriptions');
+    Route::get('payments', [PaymentController::class, 'index'])->name('payments');
+    Route::post('payment/checkout/{plan}', [PaymentController::class, 'checkout'])
+        ->where('plan', '[0-9]+')
+        ->name('payment.checkout');
+    Route::get('payment/success', [PaymentController::class, 'success'])->name('payment.success');
+    Route::get('payment/cancel', [PaymentController::class, 'cancel'])->name('payment.cancel');
+    Route::get('payment/billing-portal', [PaymentController::class, 'billingPortal'])->name('payment.billing-portal');
+    Route::post('subscription/{subscription}/cancel', [PaymentController::class, 'cancelSubscription'])->name('subscription.cancel');
+    Route::post('subscription/{subscription}/resume', [PaymentController::class, 'resumeSubscription'])->name('subscription.resume');
 
     // Jobs CRUD
     Route::get('post-jobs', [JobController::class, 'index'])->name('post-jobs');
@@ -84,9 +93,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return Inertia::render('admin/Analytics');
     })->name('analytics');
 
-    Route::get('payments', function () {
-        return Inertia::render('admin/Payments');
-    })->name('payments');
+    Route::get('payments', [AdminPaymentController::class, 'index'])->name('payments');
+    Route::get('payments/{payment}', [AdminPaymentController::class, 'show'])->name('payments.show');
 
     // Company Management CRUD
     Route::get('company-management', [CompanyController::class, 'index'])->name('company-management');
