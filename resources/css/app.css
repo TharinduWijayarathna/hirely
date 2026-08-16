@@ -172,6 +172,15 @@
     --hero-to: #c2410c;
 }
 
+.hirely-display {
+    font-family: Fraunces, 'Times New Roman', serif;
+}
+
+.hirely-hero {
+    background: linear-gradient(120deg, var(--hero-from), var(--hero-via) 52%, var(--hero-to));
+    color: white;
+}
+
 @layer components {
     .public-site {
         min-height: 100vh;

@@ -200,6 +200,17 @@ const adminNavItems: NavItem[] = [
     }
 ];
 
+const navLabel = computed(() => {
+    switch (userRole.value) {
+        case 'hr_professional':
+            return 'Hiring';
+        case 'admin':
+            return 'Admin';
+        default:
+            return 'For you';
+    }
+});
+
 const mainNavItems = computed(() => {
     switch (userRole.value) {
         case 'hr_professional':
@@ -228,7 +239,7 @@ const mainNavItems = computed(() => {
         </SidebarHeader>
 
         <SidebarContent>
-            <NavMain :items="mainNavItems" />
+            <NavMain :items="mainNavItems" :label="navLabel" />
         </SidebarContent>
 
         <SidebarFooter class="p-4">

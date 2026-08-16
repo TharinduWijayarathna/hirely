@@ -2,7 +2,7 @@
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { dashboard, cvReview, interviews, jobApplications } from '@/routes';
-import { reviewCandidates, rankings, reports } from '@/routes';
+import { reviewCandidates, rankings, reports, postJobs } from '@/routes';
 import { userManagement, analytics } from '@/routes';
 import { payments as adminPayments } from '@/routes/admin';
 import { type BreadcrumbItem, type UserRole } from '@/types';
@@ -46,6 +46,17 @@ const props = defineProps<{
 
 const page = usePage();
 const userRole = computed(() => (props.role || page.props.auth?.user?.role || 'job_seeker') as UserRole);
+const firstName = computed(() => page.props.auth?.user?.name?.split(' ')[0] || 'there');
+
+const intro = computed(() => {
+    if (userRole.value === 'hr_professional') {
+        return 'Post roles, review candidates, and keep the last word on every hire.';
+    }
+    if (userRole.value === 'admin') {
+        return 'Companies, users, and the public jobs board — all in Hirely.';
+    }
+    return 'Find jobs, apply from a link, and sit the interview the company assigned.';
+});
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -86,14 +97,45 @@ const formatTime = (value?: string | null) => {
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-6 p-6">
-            <div>
-                <h1 class="text-3xl font-bold tracking-tight text-primary">Welcome Back</h1>
-                <p class="text-muted-foreground mt-2">
-                    <template v-if="userRole === 'job_seeker'">Your career preparation dashboard</template>
-                    <template v-else-if="userRole === 'hr_professional'">Your HR management dashboard</template>
-                    <template v-else>Your platform administration dashboard</template>
+            <section class="hirely-hero overflow-hidden rounded-3xl px-6 py-8 sm:px-8">
+                <p class="hirely-display text-sm tracking-wide text-white/80">Hirely</p>
+                <h1 class="hirely-display mt-2 text-3xl leading-tight font-medium sm:text-4xl">
+                    Hello, {{ firstName }}
+                </h1>
+                <p class="mt-3 max-w-xl text-sm leading-6 text-white/85 sm:text-base">
+                    {{ intro }}
                 </p>
-            </div>
+                <div class="mt-6 flex flex-wrap gap-3">
+                    <Link
+                        v-if="userRole === 'job_seeker'"
+                        href="/jobs"
+                        class="rounded-full bg-white px-4 py-2 text-sm font-semibold text-indigo-700"
+                    >
+                        Browse jobs
+                    </Link>
+                    <Link
+                        v-else-if="userRole === 'hr_professional'"
+                        :href="postJobs()"
+                        class="rounded-full bg-white px-4 py-2 text-sm font-semibold text-indigo-700"
+                    >
+                        Post a job
+                    </Link>
+                    <Link
+                        v-else
+                        href="/"
+                        class="rounded-full bg-white px-4 py-2 text-sm font-semibold text-indigo-700"
+                    >
+                        Public jobs board
+                    </Link>
+                    <Link
+                        v-if="userRole === 'job_seeker'"
+                        :href="jobApplications()"
+                        class="rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white"
+                    >
+                        My applications
+                    </Link>
+                </div>
+            </section>
 
             <template v-if="userRole === 'job_seeker'">
                 <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -256,7 +298,7 @@ const formatTime = (value?: string | null) => {
             </template>
 
             <div>
-                <h2 class="mb-4 text-xl font-semibold">Quick Actions</h2>
+                <h2 class="hirely-display mb-4 text-xl">Jump back in</h2>
                 <template v-if="userRole === 'job_seeker'">
                     <div class="grid gap-4 md:grid-cols-3">
                         <Card class="group shadow-sm">

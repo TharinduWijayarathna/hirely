@@ -11,3 +11,15 @@ test('the public welcome page is branded hirely', function () {
 test('the application name defaults to hirely', function () {
     expect(config('app.name'))->toBe('Hirely');
 });
+
+test('the dashboard is branded hirely', function () {
+    $this->actingAs(\App\Models\User::factory()->jobSeeker()->create(['name' => 'Alex Rivera']))
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Dashboard')
+            ->where('auth.user.name', 'Alex Rivera')
+        )
+        ->assertSee('Hirely')
+        ->assertDontSee('TalentTune');
+});
