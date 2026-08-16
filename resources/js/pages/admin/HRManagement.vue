@@ -11,7 +11,7 @@ import { Combobox } from '@/components/ui/combobox';
 import InputError from '@/components/InputError.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { Users, UserCog, Mail, Calendar, Edit, Trash2, Plus, Building2, Search, Filter } from 'lucide-vue-next';
+import { Users, UserCog, Mail, Calendar, Edit, Trash2, Plus, Building2, Search } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 
 const props = defineProps<{
@@ -207,40 +207,23 @@ const applyFilters = () => {
                 </Dialog>
             </div>
 
-            <Card class="shadow-sm">
-                <CardHeader>
-                    <CardTitle class="flex items-center gap-2">
-                        <Filter class="h-5 w-5" />
-                        Filters
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div class="flex gap-4">
-                        <div class="flex-1">
-                            <Input
-                                v-model="searchQuery"
-                                placeholder="Search by name or email..."
-                                @keyup.enter="applyFilters"
-                            />
-                        </div>
-                        <div class="flex-1">
-                            <select
-                                v-model="companyFilter"
-                                class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm h-9"
-                            >
-                                <option value="">All Companies</option>
-                                <option v-for="company in companies" :key="company.id" :value="company.id">
-                                    {{ company.name }}
-                                </option>
-                            </select>
-                        </div>
-                        <Button @click="applyFilters">
-                            <Search class="mr-2 h-4 w-4" />
-                            Search
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
+            <div class="dash-filter">
+                <div class="dash-filter-search">
+                    <Search />
+                    <input
+                        v-model="searchQuery"
+                        placeholder="Search by name or email..."
+                        @keyup.enter="applyFilters"
+                    />
+                </div>
+                <select v-model="companyFilter" class="dash-select" @change="applyFilters">
+                    <option value="">All companies</option>
+                    <option v-for="company in companies" :key="company.id" :value="company.id">
+                        {{ company.name }}
+                    </option>
+                </select>
+                <Button size="sm" @click="applyFilters">Search</Button>
+            </div>
 
             <Card class="shadow-sm">
                 <CardHeader>

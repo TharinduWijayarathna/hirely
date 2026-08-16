@@ -10,7 +10,7 @@ import jobApplicationsRoutes from '@/routes/job-applications';
 import InputError from '@/components/InputError.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { Briefcase, Search, MapPin, DollarSign, Clock, Building2, Send, Filter } from 'lucide-vue-next';
+import { Briefcase, Search, MapPin, DollarSign, Building2, Send } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 
 const props = defineProps<{
@@ -132,61 +132,31 @@ const getRemoteLabel = (remote: string) => {
             </div>
 
             <!-- Filters -->
-            <Card class="shadow-sm">
-                <CardHeader>
-                    <CardTitle class="flex items-center gap-2">
-                        <Filter class="h-5 w-5" />
-                        Filters
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div class="grid gap-4 md:grid-cols-4">
-                        <div class="grid gap-2">
-                            <Label for="search">Search</Label>
-                            <Input
-                                id="search"
-                                v-model="searchQuery"
-                                placeholder="Search jobs..."
-                                @keyup.enter="applyFilters"
-                            />
-                        </div>
-                        <div class="grid gap-2">
-                            <Label for="type">Job Type</Label>
-                            <select
-                                id="type"
-                                v-model="typeFilter"
-                                class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm h-9"
-                            >
-                                <option value="">All Types</option>
-                                <option value="full_time">Full Time</option>
-                                <option value="part_time">Part Time</option>
-                                <option value="contract">Contract</option>
-                                <option value="freelance">Freelance</option>
-                                <option value="internship">Internship</option>
-                            </select>
-                        </div>
-                        <div class="grid gap-2">
-                            <Label for="remote">Remote Type</Label>
-                            <select
-                                id="remote"
-                                v-model="remoteFilter"
-                                class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm h-9"
-                            >
-                                <option value="">All</option>
-                                <option value="on_site">On Site</option>
-                                <option value="remote">Remote</option>
-                                <option value="hybrid">Hybrid</option>
-                            </select>
-                        </div>
-                        <div class="flex items-end">
-                            <Button @click="applyFilters" class="w-full">
-                                <Search class="mr-2 h-4 w-4" />
-                                Apply Filters
-                            </Button>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+            <div class="dash-filter">
+                <div class="dash-filter-search">
+                    <Search />
+                    <input
+                        v-model="searchQuery"
+                        placeholder="Search jobs..."
+                        @keyup.enter="applyFilters"
+                    />
+                </div>
+                <select v-model="typeFilter" class="dash-select" @change="applyFilters">
+                    <option value="">All types</option>
+                    <option value="full_time">Full time</option>
+                    <option value="part_time">Part time</option>
+                    <option value="contract">Contract</option>
+                    <option value="freelance">Freelance</option>
+                    <option value="internship">Internship</option>
+                </select>
+                <select v-model="remoteFilter" class="dash-select" @change="applyFilters">
+                    <option value="">All locations</option>
+                    <option value="on_site">On site</option>
+                    <option value="remote">Remote</option>
+                    <option value="hybrid">Hybrid</option>
+                </select>
+                <Button size="sm" @click="applyFilters">Search</Button>
+            </div>
 
             <!-- Jobs List -->
             <div v-if="jobs?.data && jobs.data.length > 0" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -203,7 +173,7 @@ const getRemoteLabel = (remote: string) => {
                             </div>
                             <span
                                 v-if="isApplied(job.id)"
-                                class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs"
+                                class="dash-badge dash-badge-accepted"
                             >
                                 Applied
                             </span>
@@ -268,11 +238,9 @@ const getRemoteLabel = (remote: string) => {
                 </Card>
             </div>
 
-            <div v-else class="flex flex-col items-center justify-center py-12 text-center">
-                <Briefcase class="h-12 w-12 text-muted-foreground mb-4" />
-                <p class="text-sm text-muted-foreground">
-                    No jobs found. Try adjusting your filters or check back later.
-                </p>
+            <div v-else class="dash-empty">
+                <Briefcase class="mb-3 h-8 w-8" />
+                <p class="text-sm">No jobs found. Try adjusting your filters.</p>
             </div>
 
             <!-- Pagination -->

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { reviewCandidates } from '@/routes';
@@ -10,7 +9,7 @@ import InputError from '@/components/InputError.vue';
 import { Label } from '@/components/ui/label';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { Users, UserCheck, Mail, Calendar, FileText, CheckCircle2, XCircle, Clock } from 'lucide-vue-next';
+import { Users, Mail, Calendar, Search } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 
 const props = defineProps<{
@@ -73,6 +72,28 @@ const form = ref({
     notes: '',
 });
 const selectedTemplateId = ref('');
+const searchQuery = ref('');
+const statusFilter = ref('all');
+const statusOptions = [
+    { value: 'all', label: 'All' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'reviewing', label: 'Reviewing' },
+    { value: 'shortlisted', label: 'Shortlisted' },
+    { value: 'interviewed', label: 'Interviewed' },
+    { value: 'accepted', label: 'Accepted' },
+    { value: 'rejected', label: 'Rejected' },
+];
+
+const filteredApplications = computed(() => {
+    const query = searchQuery.value.trim().toLowerCase();
+
+    return (props.applications || []).filter((application) => {
+        const matchesStatus = statusFilter.value === 'all' || application.status === statusFilter.value;
+        const haystack = `${application.user.name} ${application.user.email} ${application.job.title}`.toLowerCase();
+
+        return matchesStatus && (!query || haystack.includes(query));
+    });
+});
 
 const openDialog = (application: any) => {
     selectedApplication.value = application;
@@ -116,29 +137,7 @@ const updateApplication = () => {
     );
 };
 
-const getStatusIcon = (status: string) => {
-    const icons: Record<string, any> = {
-        pending: Clock,
-        reviewing: Clock,
-        shortlisted: UserCheck,
-        interviewed: UserCheck,
-        accepted: CheckCircle2,
-        rejected: XCircle,
-    };
-    return icons[status] || Clock;
-};
-
-const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-        pending: 'bg-yellow-100 text-yellow-800',
-        reviewing: 'bg-blue-100 text-blue-800',
-        shortlisted: 'bg-purple-100 text-purple-800',
-        interviewed: 'bg-indigo-100 text-indigo-800',
-        accepted: 'bg-green-100 text-green-800',
-        rejected: 'bg-red-100 text-red-800',
-    };
-    return colors[status] || colors.pending;
-};
+const statusBadge = (status: string) => `dash-badge dash-badge-${status}`;
 </script>
 
 <template>
@@ -153,60 +152,57 @@ const getStatusColor = (status: string) => {
                 </p>
             </div>
 
-            <Card class="shadow-sm">
-                <CardHeader>
-                    <CardTitle>Candidate Profiles</CardTitle>
-                    <CardDescription>View candidate profiles and application details</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div v-if="applications && applications.length > 0" class="space-y-4">
-                        <div
-                            v-for="application in applications"
-                            :key="application.id"
-                            class="p-4 border rounded-lg hover:bg-accent transition-colors"
-                        >
-                            <div class="flex items-start justify-between">
-                                <div class="flex-1">
-                                    <div class="flex items-center gap-2 mb-2">
-                                        <UserCheck class="h-5 w-5 text-primary" />
-                                        <h3 class="font-semibold text-lg">{{ application.user.name }}</h3>
-                                        <component
-                                            :is="getStatusIcon(application.status)"
-                                            :class="['h-4 w-4', getStatusColor(application.status).replace('bg-', 'text-')]"
-                                        />
-                                    </div>
-                                    <div class="flex items-center gap-4 text-sm text-muted-foreground mb-2">
-                                        <span class="flex items-center gap-1">
-                                            <Mail class="h-4 w-4" />
-                                            {{ application.user.email }}
-                                        </span>
-                                        <span class="flex items-center gap-1">
-                                            <Calendar class="h-4 w-4" />
-                                            Applied {{ new Date(application.applied_at).toLocaleDateString() }}
-                                        </span>
-                                    </div>
-                                    <div class="mb-2">
-                                        <p class="text-sm font-medium">Applied for: {{ application.job.title }}</p>
-                                    </div>
-                                    <p v-if="application.cover_letter" class="text-sm text-muted-foreground mb-2 line-clamp-2">
-                                        {{ application.cover_letter }}
-                                    </p>
-                                    <span :class="['inline-block px-2 py-1 rounded text-xs', getStatusColor(application.status)]">
-                                        {{ application.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) }}
-                                    </span>
-                                </div>
-                                <Button @click="openDialog(application)">Review</Button>
-                            </div>
+            <div class="dash-filter">
+                <div class="dash-filter-search">
+                    <Search />
+                    <input v-model="searchQuery" placeholder="Search candidates or jobs..." />
+                </div>
+                <div class="dash-chips">
+                    <button
+                        v-for="option in statusOptions"
+                        :key="option.value"
+                        type="button"
+                        class="dash-chip"
+                        :class="{ 'dash-chip-active': statusFilter === option.value }"
+                        @click="statusFilter = option.value"
+                    >
+                        {{ option.label }}
+                    </button>
+                </div>
+            </div>
+
+            <div v-if="filteredApplications.length > 0" class="space-y-2">
+                <div
+                    v-for="application in filteredApplications"
+                    :key="application.id"
+                    class="dash-row flex items-start justify-between gap-4"
+                >
+                    <div class="min-w-0 flex-1">
+                        <div class="mb-1 flex flex-wrap items-center gap-2">
+                            <h3 class="font-medium">{{ application.user.name }}</h3>
+                            <span :class="statusBadge(application.status)">
+                                {{ application.status.replace('_', ' ') }}
+                            </span>
                         </div>
-                    </div>
-                    <div v-else class="flex flex-col items-center justify-center py-8 text-center">
-                        <Users class="h-12 w-12 text-muted-foreground mb-4" />
-                        <p class="text-sm text-muted-foreground">
-                            No candidates to review yet. Candidates will appear here once they apply to your job postings.
+                        <p class="text-sm text-muted-foreground">{{ application.job.title }}</p>
+                        <p class="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                            <span class="flex items-center gap-1">
+                                <Mail class="h-3.5 w-3.5" />
+                                {{ application.user.email }}
+                            </span>
+                            <span class="flex items-center gap-1">
+                                <Calendar class="h-3.5 w-3.5" />
+                                {{ new Date(application.applied_at).toLocaleDateString() }}
+                            </span>
                         </p>
                     </div>
-                </CardContent>
-            </Card>
+                    <Button size="sm" @click="openDialog(application)">Review</Button>
+                </div>
+            </div>
+            <div v-else class="dash-empty">
+                <Users class="mb-3 h-8 w-8" />
+                <p class="text-sm">No candidates match this filter.</p>
+            </div>
 
             <Dialog :open="isDialogOpen" @update:open="(val) => { isDialogOpen = val; if (!val) selectedApplication = null; }">
                 <DialogContent class="max-w-2xl max-h-[90vh] overflow-y-auto">

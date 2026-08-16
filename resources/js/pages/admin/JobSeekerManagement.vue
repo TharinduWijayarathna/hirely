@@ -10,7 +10,7 @@ import jobSeekerManagementRoutes from '@/routes/job-seeker-management';
 import InputError from '@/components/InputError.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { Users, Search, Filter, Edit, Trash2, Mail, Plus, UserCircle } from 'lucide-vue-next';
+import { Users, Search, Edit, Trash2, Mail, Plus, UserCircle } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 
 const props = defineProps<{
@@ -168,29 +168,17 @@ const applyFilters = () => {
                 </Dialog>
             </div>
 
-            <Card class="shadow-sm">
-                <CardHeader>
-                    <CardTitle class="flex items-center gap-2">
-                        <Filter class="h-5 w-5" />
-                        Filters
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div class="flex gap-4">
-                        <div class="flex-1">
-                            <Input
-                                v-model="searchQuery"
-                                placeholder="Search by name or email..."
-                                @keyup.enter="applyFilters"
-                            />
-                        </div>
-                        <Button @click="applyFilters">
-                            <Search class="mr-2 h-4 w-4" />
-                            Search
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
+            <div class="dash-filter">
+                <div class="dash-filter-search">
+                    <Search />
+                    <input
+                        v-model="searchQuery"
+                        placeholder="Search by name or email..."
+                        @keyup.enter="applyFilters"
+                    />
+                </div>
+                <Button size="sm" @click="applyFilters">Search</Button>
+            </div>
 
             <Card class="shadow-sm">
                 <CardHeader>

@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { interviews } from '@/routes';
 import interviewsRoutes from '@/routes/interviews';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/vue3';
 import { ClipboardList, Eye, Play } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 const props = defineProps<{
     interviews?: Array<{
@@ -28,15 +28,23 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const statusColor = (status: string) => {
-    const colors: Record<string, string> = {
-        pending: 'bg-yellow-100 text-yellow-800',
-        in_progress: 'bg-blue-100 text-blue-800',
-        completed: 'bg-green-100 text-green-800',
-        cancelled: 'bg-gray-100 text-gray-800',
-    };
-    return colors[status] || colors.pending;
-};
+const statusFilter = ref('all');
+const statusOptions = [
+    { value: 'all', label: 'All' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'in_progress', label: 'In progress' },
+    { value: 'completed', label: 'Completed' },
+];
+
+const filteredInterviews = computed(() => {
+    if (statusFilter.value === 'all') {
+        return props.interviews || [];
+    }
+
+    return (props.interviews || []).filter((interview) => interview.status === statusFilter.value);
+});
+
+const statusBadge = (status: string) => `dash-badge dash-badge-${status}`;
 </script>
 
 <template>
@@ -51,46 +59,59 @@ const statusColor = (status: string) => {
                 </p>
             </div>
 
-            <div v-if="props.interviews && props.interviews.length > 0" class="space-y-4">
-                <Card v-for="interview in props.interviews" :key="interview.id" class="shadow-sm">
-                    <CardHeader class="flex flex-row items-start justify-between">
-                        <div>
-                            <CardTitle>{{ interview.job?.title || 'Interview' }}</CardTitle>
-                            <CardDescription>
-                                {{ interview.template?.name || 'Recruitment interview' }} ·
-                                {{ interview.difficulty }} · {{ interview.mode }}
-                            </CardDescription>
+            <div class="dash-chips">
+                <button
+                    v-for="option in statusOptions"
+                    :key="option.value"
+                    type="button"
+                    class="dash-chip"
+                    :class="{ 'dash-chip-active': statusFilter === option.value }"
+                    @click="statusFilter = option.value"
+                >
+                    {{ option.label }}
+                </button>
+            </div>
+
+            <div v-if="filteredInterviews.length > 0" class="space-y-2">
+                <div
+                    v-for="interview in filteredInterviews"
+                    :key="interview.id"
+                    class="dash-row flex items-start justify-between gap-4"
+                >
+                    <div class="min-w-0 flex-1">
+                        <div class="mb-1 flex flex-wrap items-center gap-2">
+                            <h3 class="font-medium">{{ interview.job?.title || 'Interview' }}</h3>
+                            <span :class="statusBadge(interview.status)">
+                                {{ interview.status.replace('_', ' ') }}
+                            </span>
                         </div>
-                        <span :class="['rounded px-2 py-1 text-xs', statusColor(interview.status)]">
-                            {{ interview.status.replace('_', ' ') }}
-                        </span>
-                    </CardHeader>
-                    <CardContent class="flex items-center justify-between">
-                        <p class="text-muted-foreground text-sm">
+                        <p class="text-sm text-muted-foreground">
+                            {{ interview.template?.name || 'Recruitment interview' }} ·
+                            {{ interview.difficulty }} · {{ interview.mode }}
+                        </p>
+                        <p class="mt-1 text-xs text-muted-foreground">
                             Assigned {{ new Date(interview.created_at).toLocaleDateString() }}
                             <span v-if="interview.score != null"> · Score {{ interview.score }}/100</span>
                         </p>
-                        <Button v-if="interview.status === 'completed'" variant="outline" as-child>
-                            <Link :href="interviewsRoutes.show(interview.id).url">
-                                <Eye class="mr-2 h-4 w-4" />
-                                View results
-                            </Link>
-                        </Button>
-                        <Button v-else as-child>
-                            <Link :href="interviewsRoutes.show(interview.id).url">
-                                <Play class="mr-2 h-4 w-4" />
-                                {{ interview.status === 'pending' ? 'Start' : 'Continue' }}
-                            </Link>
-                        </Button>
-                    </CardContent>
-                </Card>
+                    </div>
+                    <Button v-if="interview.status === 'completed'" variant="outline" size="sm" as-child>
+                        <Link :href="interviewsRoutes.show(interview.id).url">
+                            <Eye class="h-4 w-4" />
+                            Results
+                        </Link>
+                    </Button>
+                    <Button v-else size="sm" as-child>
+                        <Link :href="interviewsRoutes.show(interview.id).url">
+                            <Play class="h-4 w-4" />
+                            {{ interview.status === 'pending' ? 'Start' : 'Continue' }}
+                        </Link>
+                    </Button>
+                </div>
             </div>
-            <Card v-else class="shadow-sm">
-                <CardContent class="flex flex-col items-center justify-center py-12 text-center">
-                    <ClipboardList class="text-muted-foreground mb-4 h-12 w-12" />
-                    <p class="text-muted-foreground text-sm">No interviews have been assigned to you yet.</p>
-                </CardContent>
-            </Card>
+            <div v-else class="dash-empty">
+                <ClipboardList class="mb-3 h-8 w-8" />
+                <p class="text-sm">No interviews in this view yet.</p>
+            </div>
         </div>
     </AppLayout>
 </template>

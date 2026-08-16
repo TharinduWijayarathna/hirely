@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { interviewResults } from '@/routes';
 import interviewResultsRoutes from '@/routes/interview-results';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/vue3';
 import { ClipboardCheck } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
 
 const props = defineProps<{
     interviews?: Array<{
@@ -28,16 +28,24 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const statusColor = (status?: string | null) => {
-    const colors: Record<string, string> = {
-        pending_review: 'bg-yellow-100 text-yellow-800',
-        accepted: 'bg-green-100 text-green-800',
-        edited: 'bg-blue-100 text-blue-800',
-        rejected: 'bg-red-100 text-red-800',
-    };
+const statusFilter = ref('all');
+const statusOptions = [
+    { value: 'all', label: 'All' },
+    { value: 'pending_review', label: 'Needs review' },
+    { value: 'accepted', label: 'Accepted' },
+    { value: 'edited', label: 'Edited' },
+    { value: 'rejected', label: 'Rejected' },
+];
 
-    return colors[status || 'pending_review'] || colors.pending_review;
-};
+const filteredInterviews = computed(() => {
+    if (statusFilter.value === 'all') {
+        return props.interviews || [];
+    }
+
+    return (props.interviews || []).filter((interview) => (interview.review_status || 'pending_review') === statusFilter.value);
+});
+
+const statusBadge = (status?: string | null) => `dash-badge dash-badge-${status || 'pending_review'}`;
 
 const statusLabel = (status?: string | null) => {
     return (status || 'pending_review').replace('_', ' ');
@@ -56,37 +64,50 @@ const statusLabel = (status?: string | null) => {
                 </p>
             </div>
 
-            <div v-if="props.interviews && props.interviews.length > 0" class="space-y-4">
-                <Card v-for="interview in props.interviews" :key="interview.id" class="shadow-sm">
-                    <CardHeader class="flex flex-row items-start justify-between">
-                        <div>
-                            <CardTitle>{{ interview.candidate?.name || 'Candidate' }}</CardTitle>
-                            <CardDescription>
-                                {{ interview.job?.title || 'Interview' }} ·
-                                {{ interview.template?.name || 'Template' }}
-                            </CardDescription>
+            <div class="dash-chips">
+                <button
+                    v-for="option in statusOptions"
+                    :key="option.value"
+                    type="button"
+                    class="dash-chip"
+                    :class="{ 'dash-chip-active': statusFilter === option.value }"
+                    @click="statusFilter = option.value"
+                >
+                    {{ option.label }}
+                </button>
+            </div>
+
+            <div v-if="filteredInterviews.length > 0" class="space-y-2">
+                <div
+                    v-for="interview in filteredInterviews"
+                    :key="interview.id"
+                    class="dash-row flex items-start justify-between gap-4"
+                >
+                    <div class="min-w-0 flex-1">
+                        <div class="mb-1 flex flex-wrap items-center gap-2">
+                            <h3 class="font-medium">{{ interview.candidate?.name || 'Candidate' }}</h3>
+                            <span :class="statusBadge(interview.review_status)">
+                                {{ statusLabel(interview.review_status) }}
+                            </span>
                         </div>
-                        <span :class="['rounded px-2 py-1 text-xs', statusColor(interview.review_status)]">
-                            {{ statusLabel(interview.review_status) }}
-                        </span>
-                    </CardHeader>
-                    <CardContent class="flex items-center justify-between">
-                        <p class="text-muted-foreground text-sm">
+                        <p class="text-sm text-muted-foreground">
+                            {{ interview.job?.title || 'Interview' }} ·
+                            {{ interview.template?.name || 'Template' }}
+                        </p>
+                        <p class="mt-1 text-xs text-muted-foreground">
                             Score {{ interview.score != null ? `${interview.score}/100` : '—' }}
                             <span v-if="interview.ai_score != null"> · AI {{ interview.ai_score }}</span>
                         </p>
-                        <Button as-child>
-                            <Link :href="interviewResultsRoutes.show(interview.id).url">Open</Link>
-                        </Button>
-                    </CardContent>
-                </Card>
+                    </div>
+                    <Button size="sm" as-child>
+                        <Link :href="interviewResultsRoutes.show(interview.id).url">Open</Link>
+                    </Button>
+                </div>
             </div>
-            <Card v-else class="shadow-sm">
-                <CardContent class="flex flex-col items-center justify-center py-12 text-center">
-                    <ClipboardCheck class="text-muted-foreground mb-4 h-12 w-12" />
-                    <p class="text-muted-foreground text-sm">No completed interviews yet.</p>
-                </CardContent>
-            </Card>
+            <div v-else class="dash-empty">
+                <ClipboardCheck class="mb-3 h-8 w-8" />
+                <p class="text-sm">No interviews in this view yet.</p>
+            </div>
         </div>
     </AppLayout>
 </template>

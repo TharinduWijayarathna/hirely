@@ -101,9 +101,9 @@ const signalLabel = (signal?: RankingSignal) => {
                         ({{ percent(weights?.application) }}%). Mock interview scores are not used.
                     </p>
                 </div>
-                <div class="flex flex-wrap items-center gap-3">
+                <div class="dash-filter w-full md:w-auto">
                     <select
-                        class="border-input bg-background h-9 min-w-[220px] rounded-md border px-3 text-sm"
+                        class="dash-select min-w-[220px]"
                         :value="selectedJobId ?? ''"
                         @change="changeJob"
                     >
@@ -112,7 +112,7 @@ const signalLabel = (signal?: RankingSignal) => {
                             {{ job.title }}
                         </option>
                     </select>
-                    <Button :disabled="selected.length < 2" @click="compare">
+                    <Button size="sm" :disabled="selected.length < 2" @click="compare">
                         Compare ({{ selected.length }})
                     </Button>
                 </div>

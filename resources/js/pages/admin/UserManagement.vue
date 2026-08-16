@@ -10,7 +10,7 @@ import userManagementRoutes from '@/routes/user-management';
 import InputError from '@/components/InputError.vue';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { Users, Search, Filter, Edit, Trash2, Mail, Plus, Building2 } from 'lucide-vue-next';
+import { Users, Search, Edit, Trash2, Mail, Plus, Building2 } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 
 const props = defineProps<{
@@ -132,14 +132,7 @@ const applyFilters = () => {
     });
 };
 
-const getRoleBadgeColor = (role: string) => {
-    const colors: Record<string, string> = {
-        admin: 'bg-red-100 text-red-800',
-        hr_professional: 'bg-blue-100 text-blue-800',
-        job_seeker: 'bg-green-100 text-green-800',
-    };
-    return colors[role] || colors.job_seeker;
-};
+const getRoleBadge = (role: string) => `dash-badge dash-badge-${role}`;
 </script>
 
 <template>
@@ -224,39 +217,22 @@ const getRoleBadgeColor = (role: string) => {
                 </Dialog>
             </div>
 
-            <Card class="shadow-sm">
-                <CardHeader>
-                    <CardTitle class="flex items-center gap-2">
-                        <Filter class="h-5 w-5" />
-                        Filters
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div class="flex gap-4">
-                        <div class="flex-1">
-                            <Input
-                                v-model="searchQuery"
-                                placeholder="Search by name or email..."
-                                @keyup.enter="applyFilters"
-                            />
-                        </div>
-                        <div>
-                            <select
-                                v-model="roleFilter"
-                                class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm h-9"
-                            >
-                                <option value="">All Roles</option>
-                                <option value="admin">Admin</option>
-                                <option value="hr_professional">HR Professional</option>
-                            </select>
-                        </div>
-                        <Button @click="applyFilters">
-                            <Search class="mr-2 h-4 w-4" />
-                            Search
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
+            <div class="dash-filter">
+                <div class="dash-filter-search">
+                    <Search />
+                    <input
+                        v-model="searchQuery"
+                        placeholder="Search by name or email..."
+                        @keyup.enter="applyFilters"
+                    />
+                </div>
+                <select v-model="roleFilter" class="dash-select" @change="applyFilters">
+                    <option value="">All roles</option>
+                    <option value="admin">Admin</option>
+                    <option value="hr_professional">HR</option>
+                </select>
+                <Button size="sm" @click="applyFilters">Search</Button>
+            </div>
 
             <Card class="shadow-sm">
                 <CardHeader>
@@ -268,15 +244,14 @@ const getRoleBadgeColor = (role: string) => {
                         <div
                             v-for="user in users.data"
                             :key="user.id"
-                            class="p-4 border rounded-lg hover:bg-accent transition-colors"
+                            class="dash-row"
                         >
                             <div class="flex items-start justify-between">
                                 <div class="flex-1">
-                                    <div class="flex items-center gap-2 mb-2">
-                                        <Users class="h-5 w-5 text-primary" />
-                                        <h3 class="font-semibold text-lg">{{ user.name }}</h3>
-                                        <span :class="['px-2 py-1 rounded text-xs', getRoleBadgeColor(user.role)]">
-                                            {{ user.role.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()) }}
+                                    <div class="mb-1 flex items-center gap-2">
+                                        <h3 class="font-medium">{{ user.name }}</h3>
+                                        <span :class="getRoleBadge(user.role)">
+                                            {{ user.role.replace('_', ' ') }}
                                         </span>
                                     </div>
                                     <div class="flex items-center gap-4 text-sm text-muted-foreground mb-2">

@@ -174,15 +174,24 @@ const deleteJob = (id: number) => {
     }
 };
 
-const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-        draft: 'bg-gray-100 text-gray-800',
-        active: 'bg-green-100 text-green-800',
-        closed: 'bg-red-100 text-red-800',
-        expired: 'bg-yellow-100 text-yellow-800',
-    };
-    return colors[status] || colors.draft;
-};
+const statusFilter = ref('all');
+const statusOptions = [
+    { value: 'all', label: 'All' },
+    { value: 'draft', label: 'Draft' },
+    { value: 'active', label: 'Active' },
+    { value: 'closed', label: 'Closed' },
+    { value: 'expired', label: 'Expired' },
+];
+
+const filteredJobs = computed(() => {
+    if (statusFilter.value === 'all') {
+        return props.jobs || [];
+    }
+
+    return (props.jobs || []).filter((job) => job.status === statusFilter.value);
+});
+
+const statusBadge = (status: string) => `dash-badge dash-badge-${status}`;
 </script>
 
 <template>
@@ -363,8 +372,21 @@ const getStatusColor = (status: string) => {
                 </Dialog>
             </div>
 
-            <div v-if="jobs && jobs.length > 0" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Card v-for="job in jobs" :key="job.id" class="shadow-sm hover:shadow-md transition-shadow">
+            <div v-if="filteredJobs.length > 0" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <button
+                    v-for="option in statusOptions"
+                    :key="option.value"
+                    type="button"
+                    class="dash-chip"
+                    :class="{ 'dash-chip-active': statusFilter === option.value }"
+                    @click="statusFilter = option.value"
+                >
+                    {{ option.label }}
+                </button>
+            </div>
+
+            <div v-if="filteredJobs.length > 0" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <Card v-for="job in filteredJobs" :key="job.id">
                     <CardHeader>
                         <div class="flex items-start justify-between">
                             <div class="flex-1">
@@ -408,8 +430,8 @@ const getStatusColor = (status: string) => {
                             </span>
                         </div>
                         <div>
-                            <span :class="['inline-block px-2 py-1 rounded text-xs', getStatusColor(job.status)]">
-                                {{ job.status.replace(/\b\w/g, l => l.toUpperCase()) }}
+                            <span :class="statusBadge(job.status)">
+                                {{ job.status }}
                             </span>
                         </div>
                         <a
@@ -423,19 +445,13 @@ const getStatusColor = (status: string) => {
                     </CardContent>
                 </Card>
             </div>
-            <div v-else class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Card class="shadow-sm hover:shadow-md transition-shadow">
-                    <CardHeader>
-                        <CardTitle class="text-lg">No jobs posted</CardTitle>
-                        <CardDescription>Start posting job vacancies to attract candidates</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button variant="outline" class="w-full" :disabled="!canCreate" @click="openDialog()">
-                            <Plus class="mr-2 h-4 w-4" />
-                            Create First Job Posting
-                        </Button>
-                    </CardContent>
-                </Card>
+            <div v-else class="dash-empty">
+                <Briefcase class="mb-3 h-8 w-8" />
+                <p class="mb-4 text-sm">{{ jobs?.length ? 'No jobs match this filter.' : 'No jobs posted yet.' }}</p>
+                <Button v-if="!jobs?.length" variant="outline" :disabled="!canCreate" @click="openDialog()">
+                    <Plus class="h-4 w-4" />
+                    Create first job
+                </Button>
             </div>
         </div>
     </AppLayout>

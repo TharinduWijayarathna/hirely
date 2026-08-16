@@ -74,49 +74,41 @@ const exportUrl = computed(() => {
                         Time in stage is days since applied for the current status.
                     </p>
                 </div>
-                <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div class="dash-filter w-full md:w-auto">
                     <select
-                        class="border-input bg-background h-9 min-w-[220px] rounded-md border px-3 text-sm"
+                        class="dash-select min-w-[220px]"
                         :value="selected_job_id ?? ''"
                         @change="changeJob"
                     >
                         <option value="">All jobs</option>
                         <option v-for="job in jobs" :key="job.id" :value="job.id">{{ job.title }}</option>
                     </select>
-                    <Button as-child variant="outline">
+                    <Button as-child size="sm" variant="outline">
                         <a :href="exportUrl">
-                            <Download class="mr-2 h-4 w-4" />
-                            Download CSV
+                            <Download class="h-4 w-4" />
+                            CSV
                         </a>
                     </Button>
                 </div>
             </div>
 
-            <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card class="shadow-sm">
-                    <CardHeader>
-                        <CardDescription>Assigned interviews</CardDescription>
-                        <CardTitle class="text-3xl">{{ interview_volume?.assigned || 0 }}</CardTitle>
-                    </CardHeader>
-                </Card>
-                <Card class="shadow-sm">
-                    <CardHeader>
-                        <CardDescription>Completed</CardDescription>
-                        <CardTitle class="text-3xl">{{ interview_volume?.completed || 0 }}</CardTitle>
-                    </CardHeader>
-                </Card>
-                <Card class="shadow-sm">
-                    <CardHeader>
-                        <CardDescription>Pending review</CardDescription>
-                        <CardTitle class="text-3xl">{{ interview_volume?.pending_review || 0 }}</CardTitle>
-                    </CardHeader>
-                </Card>
-                <Card class="shadow-sm">
-                    <CardHeader>
-                        <CardDescription>Avg interview score</CardDescription>
-                        <CardTitle class="text-3xl">{{ interview_volume?.avg_score ?? '—' }}</CardTitle>
-                    </CardHeader>
-                </Card>
+            <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                <div class="dash-stat">
+                    <p class="dash-stat-label">Assigned interviews</p>
+                    <p class="dash-stat-value">{{ interview_volume?.assigned || 0 }}</p>
+                </div>
+                <div class="dash-stat">
+                    <p class="dash-stat-label">Completed</p>
+                    <p class="dash-stat-value">{{ interview_volume?.completed || 0 }}</p>
+                </div>
+                <div class="dash-stat">
+                    <p class="dash-stat-label">Pending review</p>
+                    <p class="dash-stat-value">{{ interview_volume?.pending_review || 0 }}</p>
+                </div>
+                <div class="dash-stat">
+                    <p class="dash-stat-label">Avg interview score</p>
+                    <p class="dash-stat-value">{{ interview_volume?.avg_score ?? '—' }}</p>
+                </div>
             </div>
 
             <div class="grid gap-4 lg:grid-cols-2">
