@@ -31,7 +31,7 @@ Application tables are listed in [data-model.md](./data-model.md).
 
 | Service | Config | Used? |
 | --- | --- | --- |
-| OpenAI | `OPENAI_API_KEY`, `OPENAI_MODEL` (default `gpt-4o-mini`), `OPENAI_BASE_URL` | Yes — questions, conversation, feedback, CV analysis, ATS scoring |
+| Gemini | `GEMINI_API_KEY`, `GEMINI_MODEL` (default `gemini-2.5-flash`), `GEMINI_BASE_URL` | Yes — questions, conversation, feedback, CV analysis, ATS scoring |
 | Stripe | `STRIPE_KEY`, `STRIPE_SECRET`, `STRIPE_WEBHOOK_SECRET` | Checkout, Billing Portal, and `POST /stripe/webhook` |
 | AWS S3 | `AWS_*`, `CV_DISK` / `FILESYSTEM_DISK` | Optional private CV storage (`league/flysystem-aws-s3-v3`) |
 | Mail | `MAIL_*` | Notifications; `log` locally, SMTP/SES in production |
@@ -46,7 +46,7 @@ From `.env.example`:
 APP_NAME=Hirely
 APP_URL=http://localhost
 DB_CONNECTION=sqlite
-OPENAI_API_KEY=key
+GEMINI_API_KEY=
 STRIPE_KEY=...
 STRIPE_SECRET=...
 STRIPE_WEBHOOK_SECRET=...
@@ -56,7 +56,7 @@ Required for a working local demo:
 
 1. `APP_KEY`
 2. Migrated SQLite (or MySQL) database
-3. `OPENAI_API_KEY` for live questions/feedback (otherwise fallback question banks and generic feedback)
+3. `GEMINI_API_KEY` for live questions/feedback (otherwise fallback question banks and generic feedback)
 4. Stripe keys for paid checkout (free plans can be granted in-app)
 
 Production extras: `APP_ENV=production`, `APP_DEBUG=false`, HTTPS `APP_URL`, MySQL, Redis, a mail provider, and `CV_DISK=s3` with an AWS bucket. URLs are forced to HTTPS when `APP_ENV=production`. Proxies are trusted for TLS termination.

@@ -9,8 +9,8 @@ beforeEach(function () {
     app()->forgetInstance(AIService::class);
 });
 
-test('question generation falls back to the default bank when openai is unset', function () {
-    config(['services.openai.api_key' => '']);
+test('question generation falls back to the default bank when gemini is unset', function () {
+    config(['services.gemini.api_key' => '']);
 
     $questions = (new AIService)->generateQuestions('technical', 'intermediate', 3);
 
@@ -18,8 +18,8 @@ test('question generation falls back to the default bank when openai is unset', 
         ->and($questions[0])->toContain('REST');
 });
 
-test('configured interview questions fall back by category when openai is unset', function () {
-    config(['services.openai.api_key' => '']);
+test('configured interview questions fall back by category when gemini is unset', function () {
+    config(['services.gemini.api_key' => '']);
 
     $questions = (new AIService)->generateConfiguredQuestions(
         'intermediate',
@@ -35,8 +35,8 @@ test('configured interview questions fall back by category when openai is unset'
         ->and($questions[2]['text'])->toContain('project');
 });
 
-test('interview evaluation uses the heuristic fallback when the openai request fails', function () {
-    config(['services.openai.api_key' => 'sk-test']);
+test('interview evaluation uses the heuristic fallback when the gemini request fails', function () {
+    config(['services.gemini.api_key' => 'gemini-test']);
     Http::fake(['*' => Http::response(['error' => 'unavailable'], 500)]);
 
     $evaluation = (new AIService)->evaluateInterview(
@@ -57,8 +57,8 @@ test('interview evaluation uses the heuristic fallback when the openai request f
         ->and($evaluation['answers'][0]['evidence'])->toContain('Representational');
 });
 
-test('cv analysis falls back to heuristics when openai is unset', function () {
-    config(['services.openai.api_key' => '']);
+test('cv analysis falls back to heuristics when gemini is unset', function () {
+    config(['services.gemini.api_key' => '']);
 
     $analysis = (new AIService)->analyzeCurriculumVitae(
         'Alex Rivera. PHP Laravel Vue developer with 4 years experience. alex@example.com'
@@ -68,8 +68,8 @@ test('cv analysis falls back to heuristics when openai is unset', function () {
         ->and($analysis['review']['score'] ?? null)->toBeInt();
 });
 
-test('ats scoring falls back to heuristics when openai is unset', function () {
-    config(['services.openai.api_key' => '']);
+test('ats scoring falls back to heuristics when gemini is unset', function () {
+    config(['services.gemini.api_key' => '']);
 
     $result = (new AIService)->scoreAtsCompatibility(
         'PHP Laravel Vue Docker developer',
@@ -81,8 +81,8 @@ test('ats scoring falls back to heuristics when openai is unset', function () {
         ->and($result['analysis']['matched_skills'] ?? [])->not->toBeEmpty();
 });
 
-test('mock interviews still start with fallback questions when openai is unset', function () {
-    config(['services.openai.api_key' => '']);
+test('mock interviews still start with fallback questions when gemini is unset', function () {
+    config(['services.gemini.api_key' => '']);
     $seeker = User::factory()->jobSeeker()->create();
 
     $this->actingAs($seeker)
@@ -100,8 +100,8 @@ test('mock interviews still start with fallback questions when openai is unset',
         ->and($session->questions[0])->toContain('REST');
 });
 
-test('follow-up generation falls back to a heuristic probe when openai is unset', function () {
-    config(['services.openai.api_key' => '']);
+test('follow-up generation falls back to a heuristic probe when gemini is unset', function () {
+    config(['services.gemini.api_key' => '']);
 
     $followUp = (new AIService)->generateFollowUpQuestion(
         'What is REST?',
@@ -114,7 +114,7 @@ test('follow-up generation falls back to a heuristic probe when openai is unset'
 });
 
 test('mock text interviews can insert a follow-up question', function () {
-    config(['services.openai.api_key' => '']);
+    config(['services.gemini.api_key' => '']);
     $seeker = User::factory()->jobSeeker()->create();
     $session = MockInterviewSession::create([
         'user_id' => $seeker->id,

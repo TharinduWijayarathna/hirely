@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Interview;
 use App\Services\AIService;
 use App\Services\CandidateRankingService;
+use App\Services\GoogleTextToSpeechService;
 use App\Services\InterviewEvaluationService;
+use App\Services\InterviewMediaService;
 use App\Services\RecruitmentNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -176,6 +178,53 @@ class InterviewController extends Controller
         }
 
         return redirect()->route('interviews.show', $interview);
+    }
+
+    public function speech(Request $request, Interview $interview, GoogleTextToSpeechService $tts)
+    {
+        $this->authorizeCandidate($interview);
+
+        $validated = $request->validate([
+            'text' => 'required|string|max:4500',
+        ]);
+
+        $audio = $tts->synthesize($validated['text']);
+
+        if ($audio === null) {
+            return response()->json(['fallback' => true], 422);
+        }
+
+        return response($audio, 200, [
+            'Content-Type' => 'audio/mpeg',
+            'Cache-Control' => 'private, max-age=86400',
+        ]);
+    }
+
+    public function storeScreenshot(Request $request, Interview $interview, InterviewMediaService $media)
+    {
+        $this->authorizeCandidate($interview);
+
+        $validated = $request->validate([
+            'screenshot' => 'required|file|mimes:jpeg,jpg,png,webp|max:4096',
+            'label' => 'nullable|string|max:80',
+        ]);
+
+        $media->storeScreenshot($interview, $request->file('screenshot'), $validated['label'] ?? null);
+
+        return response()->json(['ok' => true]);
+    }
+
+    public function storeRecording(Request $request, Interview $interview, InterviewMediaService $media)
+    {
+        $this->authorizeCandidate($interview);
+
+        $request->validate([
+            'recording' => 'required|file|mimes:webm,mp4,mov,bin|max:102400',
+        ]);
+
+        $media->storeRecording($interview, $request->file('recording'));
+
+        return response()->json(['ok' => true]);
     }
 
     public function update(

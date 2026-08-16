@@ -36,7 +36,7 @@ The strongest areas today are authentication, jobs, CV extraction, explainable i
 | 11 | AI Answer Analysis | Partial | 75% | Per-question scores, feedback, and evidence on recruitment completion. Mock completion uses the same evaluator mapped to legacy feedback. |
 | 12 | AI Strength & Weakness Analysis | Partial | 80% | Structured `strengths[]` and `weaknesses[]` stored on `interviews.evaluation`. |
 | 13 | AI Scoring System | Partial | 82% | Overall 0–100 plus criterion dimensions. Template weights recompute overall as a weighted average. Effective `score` is the AI score until HR edits it. |
-| 14 | Explainable AI Evaluation | Partial | 75% | Dimension scores, evidence snippets, rationale, and confidence. Heuristic fallback when OpenAI is unset. |
+| 14 | Explainable AI Evaluation | Partial | 75% | Dimension scores, evidence snippets, rationale, and confidence. Heuristic fallback when Gemini is unset. |
 | 15 | Automatic Candidate Ranking | Partial | 80% | Per-job weighted ranking from interview (50%), CV/ATS (30%), and application stage (20%). Rejected interviews are excluded. Positions persist on `job_applications`. |
 | 16 | Candidate Comparison | Partial | 80% | Side-by-side view of 2–4 applicants on shared interview criteria, CV skills, and ranking rationale. |
 | 17 | HR Dashboard | Partial | 80% | Live job, applicant, review-queue, subscription, and pipeline counts from company-scoped queries. |

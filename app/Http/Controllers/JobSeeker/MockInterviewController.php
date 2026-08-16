@@ -5,6 +5,7 @@ namespace App\Http\Controllers\JobSeeker;
 use App\Http\Controllers\Controller;
 use App\Models\MockInterviewSession;
 use App\Services\AIService;
+use App\Services\GoogleTextToSpeechService;
 use App\Services\PlanLimitService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -330,6 +331,28 @@ class MockInterviewController extends Controller
             'session' => $session,
         ])->with([
             'conversation_history' => $session->conversation_history ?? [],
+        ]);
+    }
+
+    public function speech(Request $request, MockInterviewSession $session, GoogleTextToSpeechService $tts)
+    {
+        if ($session->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'text' => 'required|string|max:4500',
+        ]);
+
+        $audio = $tts->synthesize($validated['text']);
+
+        if ($audio === null) {
+            return response()->json(['fallback' => true], 422);
+        }
+
+        return response($audio, 200, [
+            'Content-Type' => 'audio/mpeg',
+            'Cache-Control' => 'private, max-age=86400',
         ]);
     }
 }

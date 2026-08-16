@@ -18,10 +18,16 @@ return [
         'token' => env('POSTMARK_TOKEN'),
     ],
 
-    'openai' => [
-        'api_key' => env('OPENAI_API_KEY'),
-        'model' => env('OPENAI_MODEL', 'gpt-4o-mini'),
-        'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+        'model' => env('GEMINI_MODEL', 'gemini-2.5-flash'),
+        'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+    ],
+
+    'google' => [
+        'tts_api_key' => env('GOOGLE_TTS_API_KEY'),
+        'tts_voice' => env('GOOGLE_TTS_VOICE', 'en-US-Neural2-F'),
+        'tts_language' => env('GOOGLE_TTS_LANGUAGE', 'en-US'),
     ],
 
     'resend' => [

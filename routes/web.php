@@ -14,6 +14,7 @@ use App\Http\Controllers\HR\InterviewTemplateController;
 use App\Http\Controllers\HR\JobController;
 use App\Http\Controllers\HR\RankingController;
 use App\Http\Controllers\HR\ReportController;
+use App\Http\Controllers\InterviewMediaController;
 use App\Http\Controllers\JobSeeker\AtsScoringController;
 use App\Http\Controllers\JobSeeker\CvController;
 use App\Http\Controllers\JobSeeker\InterviewController as JobSeekerInterviewController;
@@ -69,6 +70,8 @@ Route::get('dashboard', DashboardController::class)->middleware(['auth', 'verifi
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.read-all');
     Route::post('notifications/{notification}/read', [NotificationController::class, 'read'])->name('notifications.read');
+    Route::get('interview-media/{interview}/recording', [InterviewMediaController::class, 'recording'])->name('interview-media.recording');
+    Route::get('interview-media/{interview}/screenshots/{index}', [InterviewMediaController::class, 'screenshot'])->name('interview-media.screenshot');
 });
 
 Route::middleware(['auth', 'verified', 'role:job_seeker'])->group(function () {
@@ -86,6 +89,7 @@ Route::middleware(['auth', 'verified', 'role:job_seeker'])->group(function () {
     Route::post('mock-interview/{session}/follow-up', [MockInterviewController::class, 'followUp'])->name('mock-interview.follow-up');
     Route::post('mock-interview/{session}/conversation', [MockInterviewController::class, 'processConversation'])->name('mock-interview.conversation');
     Route::get('mock-interview/{session}/initial', [MockInterviewController::class, 'getInitialMessage'])->name('mock-interview.initial');
+    Route::post('mock-interview/{session}/speech', [MockInterviewController::class, 'speech'])->name('mock-interview.speech');
 
     Route::get('profile-score', ProfileScoreController::class)->name('profile-score');
 
@@ -112,6 +116,9 @@ Route::middleware(['auth', 'verified', 'role:job_seeker'])->group(function () {
     Route::post('interviews/{interview}/follow-up', [JobSeekerInterviewController::class, 'followUp'])->name('interviews.follow-up');
     Route::post('interviews/{interview}/conversation', [JobSeekerInterviewController::class, 'conversation'])->name('interviews.conversation');
     Route::get('interviews/{interview}/initial', [JobSeekerInterviewController::class, 'initial'])->name('interviews.initial');
+    Route::post('interviews/{interview}/speech', [JobSeekerInterviewController::class, 'speech'])->name('interviews.speech');
+    Route::post('interviews/{interview}/screenshots', [JobSeekerInterviewController::class, 'storeScreenshot'])->name('interviews.screenshots.store');
+    Route::post('interviews/{interview}/recording', [JobSeekerInterviewController::class, 'storeRecording'])->name('interviews.recording.store');
 });
 
 Route::middleware(['auth', 'verified', 'role:hr_professional'])->group(function () {

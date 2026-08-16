@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
+import InterviewRecordingPanel from '@/components/InterviewRecordingPanel.vue';
 import InterviewEvaluationPanel, { type InterviewEvaluation } from '@/components/InterviewEvaluationPanel.vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,6 +33,8 @@ const props = defineProps<{
         candidate?: { name: string; email: string } | null;
         template?: { name: string } | null;
         reviewed_by?: { name: string } | null;
+        recording_url?: string | null;
+        screenshots?: Array<{ url: string; label?: string; captured_at?: string | null }>;
     };
 }>();
 
@@ -79,6 +82,11 @@ const submitReview = () => {
                     </Link>
                 </Button>
             </div>
+
+            <InterviewRecordingPanel
+                :recording-url="interview.recording_url"
+                :screenshots="interview.screenshots"
+            />
 
             <InterviewEvaluationPanel
                 :evaluation="interview.evaluation"

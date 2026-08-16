@@ -15,9 +15,9 @@ class AIService
 
     public function __construct()
     {
-        $this->apiKey = config('services.openai.api_key');
-        $this->model = config('services.openai.model', 'gpt-4o-mini');
-        $this->baseUrl = config('services.openai.base_url', 'https://api.openai.com/v1');
+        $this->apiKey = (string) (config('services.gemini.api_key') ?? '');
+        $this->model = (string) config('services.gemini.model', 'gemini-2.5-flash');
+        $this->baseUrl = rtrim((string) config('services.gemini.base_url', 'https://generativelanguage.googleapis.com/v1beta'), '/');
     }
 
     /**
@@ -80,11 +80,11 @@ class AIService
         $userPrompt = "Generate {$spec}. Questions must be specific to the role and candidate when context is provided.\n{$context}";
 
         try {
-            $response = $this->makeRequest($systemPrompt, $userPrompt);
+            $response = $this->makeRequest($systemPrompt, $userPrompt, 2000, true);
+            $content = $this->responseText($response);
 
-            if ($response && isset($response['choices'][0]['message']['content'])) {
-                $content = $this->stripMarkdown($response['choices'][0]['message']['content']);
-                $decoded = json_decode($content, true);
+            if ($content !== null) {
+                $decoded = json_decode($this->stripMarkdown($content), true);
 
                 if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
                     return $this->flattenCategorizedQuestions($decoded, $requested);
@@ -122,12 +122,10 @@ class AIService
         $userPrompt = "Generate exactly {$count} {$typeLabels[$type]} interview questions for {$difficultyLabels[$difficulty]} level candidates. Return as a valid JSON array format: [\"Question 1?\", \"Question 2?\", \"Question 3?\"]";
 
         try {
-            $response = $this->makeRequest($systemPrompt, $userPrompt);
+            $response = $this->makeRequest($systemPrompt, $userPrompt, 2000, true);
+            $content = $this->responseText($response);
 
-            if ($response && isset($response['choices'][0]['message']['content'])) {
-                $content = $response['choices'][0]['message']['content'];
-
-                // Try to extract JSON from the response
+            if ($content !== null) {
                 $content = $this->stripMarkdown($content);
 
                 $questions = json_decode($content, true);
@@ -168,8 +166,10 @@ class AIService
                 200
             );
 
-            if ($response && isset($response['choices'][0]['message']['content'])) {
-                $followUp = trim($this->stripMarkdown($response['choices'][0]['message']['content']));
+            $content = $this->responseText($response);
+
+            if ($content !== null) {
+                $followUp = trim($this->stripMarkdown($content));
                 $followUp = trim($followUp, " \t\n\r\0\x0B\"'");
 
                 if ($followUp === '' || strcasecmp($followUp, 'NONE') === 0) {
@@ -257,8 +257,10 @@ Keep your responses natural and conversational.";
         try {
             $response = $this->makeConversationalRequest($messages);
 
-            if ($response && isset($response['choices'][0]['message']['content'])) {
-                return trim($response['choices'][0]['message']['content']);
+            $content = $this->responseText($response);
+
+            if ($content !== null) {
+                return $content;
             }
         } catch (\Exception $e) {
             Log::error('AI conversational response error: '.$e->getMessage());
@@ -273,39 +275,38 @@ Keep your responses natural and conversational.";
     }
 
     /**
-     * Make conversational API request with message history
+     * @param  array<int, array{role?: string, content?: string}>  $messages
      */
     protected function makeConversationalRequest(array $messages): ?array
     {
-        if (empty($this->apiKey)) {
-            Log::error('OpenAI API key is not configured');
+        $systemInstruction = '';
+        $contents = [];
 
-            return null;
-        }
+        foreach ($messages as $message) {
+            $role = $message['role'] ?? 'user';
+            $content = (string) ($message['content'] ?? '');
 
-        try {
-            $response = Http::timeout(60)
-                ->withHeaders([
-                    'Authorization' => 'Bearer '.$this->apiKey,
-                    'Content-Type' => 'application/json',
-                ])
-                ->post("{$this->baseUrl}/chat/completions", [
-                    'model' => $this->model,
-                    'messages' => $messages,
-                    'temperature' => 0.8, // More creative/conversational
-                    'max_tokens' => 300, // Keep responses concise
-                ]);
+            if ($role === 'system') {
+                $systemInstruction .= ($systemInstruction === '' ? '' : "\n\n").$content;
 
-            if ($response->successful()) {
-                return $response->json();
+                continue;
             }
 
-            Log::error('OpenAI conversational API request failed: '.$response->body());
-        } catch (\Exception $e) {
-            Log::error('OpenAI conversational API request exception: '.$e->getMessage());
+            $geminiRole = $role === 'assistant' ? 'model' : 'user';
+
+            if ($contents !== [] && $contents[array_key_last($contents)]['role'] === $geminiRole) {
+                $contents[array_key_last($contents)]['parts'][0]['text'] .= "\n\n".$content;
+
+                continue;
+            }
+
+            $contents[] = [
+                'role' => $geminiRole,
+                'parts' => [['text' => $content]],
+            ];
         }
 
-        return null;
+        return $this->generateContent($systemInstruction, $contents, 300, 0.8);
     }
 
     /**
@@ -364,11 +365,13 @@ Keep your responses natural and conversational.";
             $response = $this->makeRequest(
                 $systemPrompt,
                 "{$jobLine}Difficulty: {$difficulty}\nCriteria: {$criteriaList}\n\n{$transcript}",
-                4000
+                4000,
+                true
             );
+            $content = $this->responseText($response);
 
-            if ($response && isset($response['choices'][0]['message']['content'])) {
-                $decoded = json_decode($this->stripMarkdown($response['choices'][0]['message']['content']), true);
+            if ($content !== null) {
+                $decoded = json_decode($this->stripMarkdown($content), true);
 
                 if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
                     return $this->normalizeEvaluation($decoded, $questions, $answers, $criteria);
@@ -478,7 +481,7 @@ Keep your responses natural and conversational.";
 
         return [
             'overall_score' => $overall,
-            'rationale' => 'Automatic evaluation generated without the AI provider. Configure OpenAI for criterion-level explanations.',
+            'rationale' => 'Automatic evaluation generated without the AI provider. Configure Gemini for criterion-level explanations.',
             'confidence' => 0.35,
             'strengths' => $overall >= 60 ? ['The candidate provided substantive written answers.'] : [],
             'weaknesses' => $overall < 70 ? ['Answers would benefit from more concrete examples and measurable outcomes.'] : [],
@@ -487,43 +490,89 @@ Keep your responses natural and conversational.";
         ];
     }
 
-    /**
-     * Make API request to OpenAI API
-     */
-    protected function makeRequest(string $systemPrompt, string $userPrompt, int $maxTokens = 2000): ?array
+    protected function makeRequest(string $systemPrompt, string $userPrompt, int $maxTokens = 2000, bool $json = false): ?array
     {
-        if (empty($this->apiKey)) {
-            Log::error('OpenAI API key is not configured');
+        return $this->generateContent(
+            $systemPrompt,
+            [
+                [
+                    'role' => 'user',
+                    'parts' => [['text' => $userPrompt]],
+                ],
+            ],
+            $maxTokens,
+            0.7,
+            $json,
+        );
+    }
+
+    /**
+     * @param  array<int, array{role: string, parts: array<int, array{text: string}>}>  $contents
+     */
+    protected function generateContent(
+        string $systemInstruction,
+        array $contents,
+        int $maxTokens,
+        float $temperature,
+        bool $json = false,
+    ): ?array {
+        if ($this->apiKey === '') {
+            Log::error('Gemini API key is not configured');
 
             return null;
         }
 
+        $payload = [
+            'contents' => $contents,
+            'generationConfig' => [
+                'temperature' => $temperature,
+                'maxOutputTokens' => $maxTokens,
+            ],
+        ];
+
+        if ($systemInstruction !== '') {
+            $payload['systemInstruction'] = [
+                'parts' => [['text' => $systemInstruction]],
+            ];
+        }
+
+        if ($json) {
+            $payload['generationConfig']['responseMimeType'] = 'application/json';
+        }
+
         try {
             $response = Http::timeout(60)
-                ->withHeaders([
-                    'Authorization' => 'Bearer '.$this->apiKey,
-                    'Content-Type' => 'application/json',
-                ])
-                ->post("{$this->baseUrl}/chat/completions", [
-                    'model' => $this->model,
-                    'messages' => [
-                        ['role' => 'system', 'content' => $systemPrompt],
-                        ['role' => 'user', 'content' => $userPrompt],
-                    ],
-                    'temperature' => 0.7,
-                    'max_tokens' => $maxTokens,
-                ]);
+                ->acceptJson()
+                ->withQueryParameters(['key' => $this->apiKey])
+                ->post("{$this->baseUrl}/models/{$this->model}:generateContent", $payload);
 
             if ($response->successful()) {
                 return $response->json();
             }
 
-            Log::error('OpenAI API request failed: '.$response->body());
+            Log::error('Gemini API request failed: '.$response->body());
         } catch (\Exception $e) {
-            Log::error('OpenAI API request exception: '.$e->getMessage());
+            Log::error('Gemini API request exception: '.$e->getMessage());
         }
 
         return null;
+    }
+
+    protected function responseText(?array $response): ?string
+    {
+        if ($response === null) {
+            return null;
+        }
+
+        $text = '';
+
+        foreach ($response['candidates'][0]['content']['parts'] ?? [] as $part) {
+            $text .= (string) ($part['text'] ?? '');
+        }
+
+        $text = trim($text);
+
+        return $text === '' ? null : $text;
     }
 
     /**
@@ -644,10 +693,11 @@ Keep your responses natural and conversational.";
         $systemPrompt = 'You are an expert recruiter and CV parser. Extract structured data and a quality review from the resume. Return ONLY valid JSON with this exact shape: {"extraction":{"full_name":"","email":"","phone":"","location":"","summary":"","education":[{"institution":"","degree":"","field":"","start_date":"","end_date":""}],"skills":[""],"experience":[{"company":"","title":"","start_date":"","end_date":"","description":""}],"qualifications":[""],"projects":[{"name":"","description":"","technologies":[""]}],"certifications":[{"name":"","issuer":"","date":""}],"technologies":[""],"relevant_experience":[""],"experience_years":0,"experience_level":"entry|mid|senior"},"review":{"score":0,"summary":"","strengths":[""],"improvements":[""]}}. experience_level must be one of entry, mid, senior. score is 0-100. No markdown.';
 
         try {
-            $response = $this->makeRequest($systemPrompt, "Parse this resume:\n\n{$text}", 4000);
+            $response = $this->makeRequest($systemPrompt, "Parse this resume:\n\n{$text}", 4000, true);
+            $content = $this->responseText($response);
 
-            if ($response && isset($response['choices'][0]['message']['content'])) {
-                $decoded = json_decode($this->stripMarkdown($response['choices'][0]['message']['content']), true);
+            if ($content !== null) {
+                $decoded = json_decode($this->stripMarkdown($content), true);
 
                 if (json_last_error() === JSON_ERROR_NONE && is_array($decoded) && isset($decoded['extraction'])) {
                     return $this->normalizeCvAnalysis($decoded);
@@ -674,10 +724,11 @@ Keep your responses natural and conversational.";
         $userPrompt = "Job description:\n{$jobDescription}\n\nKnown skills: {$skills}\n\nResume:\n{$cvText}";
 
         try {
-            $response = $this->makeRequest($systemPrompt, $userPrompt, 2000);
+            $response = $this->makeRequest($systemPrompt, $userPrompt, 2000, true);
+            $content = $this->responseText($response);
 
-            if ($response && isset($response['choices'][0]['message']['content'])) {
-                $decoded = json_decode($this->stripMarkdown($response['choices'][0]['message']['content']), true);
+            if ($content !== null) {
+                $decoded = json_decode($this->stripMarkdown($content), true);
 
                 if (json_last_error() === JSON_ERROR_NONE && is_array($decoded) && isset($decoded['score'])) {
                     return [
@@ -762,7 +813,7 @@ Keep your responses natural and conversational.";
             ],
             'review' => [
                 'score' => $skills === [] ? 55 : min(80, 50 + count($skills) * 4),
-                'summary' => 'Automatic review generated without the AI provider. Upload again after configuring OpenAI for a richer analysis.',
+                'summary' => 'Automatic review generated without the AI provider. Upload again after configuring Gemini for a richer analysis.',
                 'strengths' => $skills === [] ? [] : ['Detected technical skills: '.implode(', ', $skills)],
                 'improvements' => ['Add measurable achievements and a concise professional summary.'],
             ],
@@ -787,7 +838,7 @@ Keep your responses natural and conversational.";
         return [
             'score' => $score,
             'analysis' => [
-                'summary' => 'Compatibility estimated from keyword overlap. Configure OpenAI for a deeper ATS review.',
+                'summary' => 'Compatibility estimated from keyword overlap. Configure Gemini for a deeper ATS review.',
                 'matched_skills' => $matched,
                 'missing_skills' => [],
                 'recommendations' => ['Mirror important keywords from the job description in your CV.'],

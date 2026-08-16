@@ -16,13 +16,13 @@ flowchart LR
   Browser["Vue 3 + Inertia pages"]
   Laravel["Laravel 12 HTTP / Fortify"]
   DB[(SQLite / MySQL)]
-  OpenAI["OpenAI Chat Completions"]
+  Gemini["Gemini generateContent"]
   Stripe["Stripe Checkout + Billing Portal"]
   Speech["Browser SpeechRecognition + speechSynthesis"]
 
   Browser --> Laravel
   Laravel --> DB
-  Laravel --> OpenAI
+  Laravel --> Gemini
   Laravel --> Stripe
   Browser --> Speech
 ```
@@ -60,7 +60,7 @@ app/
     Settings/          Profile, password, 2FA
   Models/              User, Company, Job, JobApplication, MockInterviewSession, ...
   Services/
-    AIService.php      OpenAI question generation, conversation, feedback
+    AIService.php      Gemini question generation, conversation, feedback
     StripeService.php  Customers, checkout sessions, subscriptions
 ```
 

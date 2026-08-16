@@ -52,6 +52,8 @@ class Interview extends Model
         'started_at',
         'completed_at',
         'duration_minutes',
+        'recording_path',
+        'screenshots',
     ];
 
     protected $casts = [
@@ -69,6 +71,7 @@ class Interview extends Model
         'started_at' => 'datetime',
         'reviewed_at' => 'datetime',
         'completed_at' => 'datetime',
+        'screenshots' => 'array',
     ];
 
     public function template(): BelongsTo
@@ -156,6 +159,15 @@ class Interview extends Model
             'answers' => $this->answers,
             'completed_at' => $this->completed_at?->toIso8601String(),
             'duration_minutes' => $this->duration_minutes,
+            'recording_url' => $this->recording_path ? '/interview-media/'.$this->id.'/recording' : null,
+            'screenshots' => collect($this->screenshots ?? [])
+                ->values()
+                ->map(fn (array $shot, int $index) => [
+                    'url' => '/interview-media/'.$this->id.'/screenshots/'.$index,
+                    'label' => $shot['label'] ?? 'capture',
+                    'captured_at' => $shot['captured_at'] ?? null,
+                ])
+                ->all(),
             'created_at' => $this->created_at?->toIso8601String(),
             'job' => $this->job ? [
                 'id' => $this->job->id,

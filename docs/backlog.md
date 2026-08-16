@@ -15,7 +15,7 @@ Update this list when items ship. Status of the product itself lives in [PRODUCT
 ## P1 — CV and candidate truth (done 16 August 2026)
 
 6. **CV upload** — PDF/DOCX to the private local disk, 10MB cap.
-7. **CV analysis pipeline** — text extract + OpenAI (heuristic fallback) for identity, education, skills, experience, qualifications, projects, certifications, technologies, relevant experience.
+7. **CV analysis pipeline** — text extract + Gemini (heuristic fallback) for identity, education, skills, experience, qualifications, projects, certifications, technologies, relevant experience.
 8. **Persist extractions** — `cv_documents` shown to HR on Review Candidates.
 9. **Filter Candidates** — skills and experience level query extracted CVs.
 10. **CV Review / ATS Scoring** — live pages; applications attach the latest processed CV.

@@ -10,7 +10,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
-    config(['services.openai.api_key' => '']);
+    config(['services.gemini.api_key' => '']);
 });
 
 function makeDocx(string $text): string

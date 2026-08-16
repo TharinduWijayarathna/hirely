@@ -146,7 +146,7 @@ Voice sessions do not automatically run the same structured analysis on every tu
 
 ## 12. AI Strength & Weakness Analysis — Partial
 
-Recruitment evaluations persist `strengths[]` and `weaknesses[]` on `interviews.evaluation`. Heuristic fallback still produces structured lists when OpenAI is unset.
+Recruitment evaluations persist `strengths[]` and `weaknesses[]` on `interviews.evaluation`. Heuristic fallback still produces structured lists when Gemini is unset.
 
 ---
 

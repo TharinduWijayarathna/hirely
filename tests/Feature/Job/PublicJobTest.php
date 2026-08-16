@@ -8,7 +8,7 @@ use App\Models\JobApplication;
 use App\Models\User;
 
 beforeEach(function () {
-    config(['services.openai.api_key' => '']);
+    config(['services.gemini.api_key' => '']);
 });
 
 test('the homepage lists live jobs', function () {

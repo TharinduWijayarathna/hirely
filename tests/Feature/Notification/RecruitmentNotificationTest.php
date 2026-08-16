@@ -82,7 +82,7 @@ test('assigning an interview notifies the candidate', function () {
 
 test('completing an interview notifies hr of review and ranking', function () {
     Notification::fake();
-    config(['services.openai.api_key' => '']);
+    config(['services.gemini.api_key' => '']);
 
     $company = Company::factory()->create();
     $hr = User::factory()->hrProfessional($company->id)->create();

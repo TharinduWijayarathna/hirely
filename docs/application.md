@@ -15,7 +15,7 @@ Public branding on `/` is **Hirely**. Seed users use `@hirely.test` addresses.
 | Frontend | Vue 3, TypeScript, Vite 7, Tailwind 4, Reka UI |
 | Routing helpers | Laravel Wayfinder |
 | Auth | Laravel Fortify (registration, reset, email verification, 2FA) |
-| AI | OpenAI Chat Completions via `App\Services\AIService` (`gpt-4o-mini` default) |
+| AI | Gemini `generateContent` via `App\Services\AIService` (`gemini-2.5-flash` default) |
 | Payments | Stripe PHP SDK via `App\Services\StripeService` |
 | Tests | Pest 4 |
 | Style | Laravel Pint, ESLint, Prettier |
@@ -127,4 +127,4 @@ Checkout creates a Stripe customer and Checkout Session. Free plans skip Stripe 
 
 ## Tests
 
-Pest feature tests cover Fortify auth and settings, role and resource authorization, job postings, applications, CV/ATS, recruitment interviews (weights, follow-ups, voice), ranking, reports/CSV, company settings, Stripe webhooks, notifications, plan-limit enforcement, and AI fallbacks when OpenAI is unset or the API fails.
+Pest feature tests cover Fortify auth and settings, role and resource authorization, job postings, applications, CV/ATS, recruitment interviews (weights, follow-ups, voice), ranking, reports/CSV, company settings, Stripe webhooks, notifications, plan-limit enforcement, and AI fallbacks when Gemini is unset or the API fails.
