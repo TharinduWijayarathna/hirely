@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { dashboard, cvReview, atsScoring, mockInterview, portfolio, profileScore } from '@/routes';
-import { postJobs, reviewCandidates } from '@/routes';
-import { userManagement, analytics, payments } from '@/routes';
+import { dashboard, cvReview, interviews, jobApplications } from '@/routes';
+import { reviewCandidates, rankings, reports } from '@/routes';
+import { userManagement, analytics } from '@/routes';
+import { payments as adminPayments } from '@/routes/admin';
 import { type BreadcrumbItem, type UserRole } from '@/types';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import {
@@ -20,11 +20,32 @@ import {
     CreditCard,
     Building2,
     FolderKanban,
+    ListOrdered,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 
+type ActivityItem = {
+    type: string;
+    title: string;
+    detail?: string;
+    at?: string | null;
+    href?: string;
+};
+
+type FunnelItem = {
+    status: string;
+    count: number;
+};
+
+const props = defineProps<{
+    role?: UserRole;
+    stats?: Record<string, number | string | null>;
+    funnel?: FunnelItem[];
+    activity?: ActivityItem[];
+}>();
+
 const page = usePage();
-const userRole = computed(() => (page.props.auth?.user?.role || 'job_seeker') as UserRole);
+const userRole = computed(() => (props.role || page.props.auth?.user?.role || 'job_seeker') as UserRole);
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -32,6 +53,32 @@ const breadcrumbs: BreadcrumbItem[] = [
         href: dashboard().url,
     },
 ];
+
+const display = (value: number | string | null | undefined) => {
+    if (value === null || value === undefined || value === '') {
+        return '—';
+    }
+
+    return value;
+};
+
+const funnelTotal = computed(() => (props.funnel || []).reduce((sum, item) => sum + item.count, 0));
+
+const funnelWidth = (count: number) => {
+    if (funnelTotal.value === 0) {
+        return '0%';
+    }
+
+    return `${Math.max(4, Math.round((count / funnelTotal.value) * 100))}%`;
+};
+
+const formatTime = (value?: string | null) => {
+    if (!value) {
+        return '';
+    }
+
+    return new Date(value).toLocaleDateString();
+};
 </script>
 
 <template>
@@ -39,319 +86,314 @@ const breadcrumbs: BreadcrumbItem[] = [
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-6 p-6">
-            <!-- Welcome Section -->
             <div>
                 <h1 class="text-3xl font-bold tracking-tight">Welcome Back</h1>
                 <p class="text-muted-foreground mt-2">
-                    <template v-if="userRole === 'job_seeker'">
-                        Your career preparation dashboard
-                    </template>
-                    <template v-else-if="userRole === 'hr_professional'">
-                        Your HR management dashboard
-                    </template>
-                    <template v-else>
-                        Your platform administration dashboard
-                    </template>
+                    <template v-if="userRole === 'job_seeker'">Your career preparation dashboard</template>
+                    <template v-else-if="userRole === 'hr_professional'">Your HR management dashboard</template>
+                    <template v-else>Your platform administration dashboard</template>
                 </p>
             </div>
 
-            <!-- Job Seeker Stats -->
             <template v-if="userRole === 'job_seeker'">
                 <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <Card class="shadow-sm hover:shadow-md transition-shadow">
+                    <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">CV Reviews</CardTitle>
-                            <FileText class="h-4 w-4 text-muted-foreground" />
+                            <FileText class="text-muted-foreground h-4 w-4" />
                         </CardHeader>
                         <CardContent>
-                            <div class="text-2xl font-bold">0</div>
-                            <p class="text-xs text-muted-foreground">Resumes reviewed</p>
+                            <div class="text-2xl font-bold">{{ display(stats?.cv_reviews) }}</div>
+                            <p class="text-muted-foreground text-xs">Processed resumes</p>
                         </CardContent>
                     </Card>
-                    <Card class="shadow-sm hover:shadow-md transition-shadow">
+                    <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">ATS Scores</CardTitle>
-                            <FileCheck class="h-4 w-4 text-muted-foreground" />
+                            <FileCheck class="text-muted-foreground h-4 w-4" />
                         </CardHeader>
                         <CardContent>
-                            <div class="text-2xl font-bold">0</div>
-                            <p class="text-xs text-muted-foreground">Compatibility checks</p>
+                            <div class="text-2xl font-bold">{{ display(stats?.ats_scores) }}</div>
+                            <p class="text-muted-foreground text-xs">Compatibility checks</p>
                         </CardContent>
                     </Card>
-                    <Card class="shadow-sm hover:shadow-md transition-shadow">
+                    <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">Interviews</CardTitle>
-                            <Video class="h-4 w-4 text-muted-foreground" />
+                            <Video class="text-muted-foreground h-4 w-4" />
                         </CardHeader>
                         <CardContent>
-                            <div class="text-2xl font-bold">0</div>
-                            <p class="text-xs text-muted-foreground">Mock sessions completed</p>
+                            <div class="text-2xl font-bold">{{ display(stats?.interviews_completed) }}</div>
+                            <p class="text-muted-foreground text-xs">
+                                {{ stats?.interviews_open || 0 }} assigned open ·
+                                {{ stats?.mock_interviews || 0 }} mock completed
+                            </p>
                         </CardContent>
                     </Card>
-                    <Card class="shadow-sm hover:shadow-md transition-shadow">
+                    <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">Profile Score</CardTitle>
-                            <TrendingUp class="h-4 w-4 text-muted-foreground" />
+                            <TrendingUp class="text-muted-foreground h-4 w-4" />
                         </CardHeader>
                         <CardContent>
-                            <div class="text-2xl font-bold">--</div>
-                            <p class="text-xs text-muted-foreground">Overall performance</p>
+                            <div class="text-2xl font-bold">{{ display(stats?.profile_score) }}</div>
+                            <p class="text-muted-foreground text-xs">
+                                {{ stats?.applications || 0 }} applications
+                            </p>
                         </CardContent>
                     </Card>
                 </div>
             </template>
 
-            <!-- HR Professional Stats -->
             <template v-else-if="userRole === 'hr_professional'">
                 <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <Card class="shadow-sm hover:shadow-md transition-shadow">
+                    <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">Job Postings</CardTitle>
-                            <Briefcase class="h-4 w-4 text-muted-foreground" />
+                            <Briefcase class="text-muted-foreground h-4 w-4" />
                         </CardHeader>
                         <CardContent>
-                            <div class="text-2xl font-bold">0</div>
-                            <p class="text-xs text-muted-foreground">Active jobs</p>
+                            <div class="text-2xl font-bold">{{ display(stats?.active_jobs) }}</div>
+                            <p class="text-muted-foreground text-xs">{{ stats?.total_jobs || 0 }} total jobs</p>
                         </CardContent>
                     </Card>
-                    <Card class="shadow-sm hover:shadow-md transition-shadow">
+                    <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">Candidates</CardTitle>
-                            <Users class="h-4 w-4 text-muted-foreground" />
+                            <Users class="text-muted-foreground h-4 w-4" />
                         </CardHeader>
                         <CardContent>
-                            <div class="text-2xl font-bold">0</div>
-                            <p class="text-xs text-muted-foreground">Total applicants</p>
+                            <div class="text-2xl font-bold">{{ display(stats?.total_applicants) }}</div>
+                            <p class="text-muted-foreground text-xs">Total applicants</p>
                         </CardContent>
                     </Card>
-                    <Card class="shadow-sm hover:shadow-md transition-shadow">
+                    <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-                            <CardTitle class="text-sm font-medium">Under Review</CardTitle>
-                            <Clock class="h-4 w-4 text-muted-foreground" />
+                            <CardTitle class="text-sm font-medium">Needs attention</CardTitle>
+                            <Clock class="text-muted-foreground h-4 w-4" />
                         </CardHeader>
                         <CardContent>
-                            <div class="text-2xl font-bold">0</div>
-                            <p class="text-xs text-muted-foreground">Pending reviews</p>
+                            <div class="text-2xl font-bold">{{ display(stats?.under_review) }}</div>
+                            <p class="text-muted-foreground text-xs">
+                                {{ stats?.interviews_pending_review || 0 }} interviews to review
+                            </p>
                         </CardContent>
                     </Card>
-                    <Card class="shadow-sm hover:shadow-md transition-shadow">
+                    <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">Subscription</CardTitle>
-                            <CreditCard class="h-4 w-4 text-muted-foreground" />
+                            <CreditCard class="text-muted-foreground h-4 w-4" />
                         </CardHeader>
                         <CardContent>
-                            <div class="text-2xl font-bold">Active</div>
-                            <p class="text-xs text-muted-foreground">Current plan</p>
+                            <div class="text-2xl font-bold">{{ display(stats?.subscription_plan) }}</div>
+                            <p class="text-muted-foreground text-xs capitalize">
+                                {{ stats?.subscription_status === 'none' ? 'No paid plan' : stats?.subscription_status }}
+                            </p>
                         </CardContent>
                     </Card>
                 </div>
+
+                <Card v-if="funnel?.length" class="shadow-sm">
+                    <CardHeader>
+                        <CardTitle>Pipeline</CardTitle>
+                        <CardDescription>Applications by current status</CardDescription>
+                    </CardHeader>
+                    <CardContent class="space-y-2">
+                        <div v-for="item in funnel" :key="item.status" class="flex items-center gap-3 text-sm">
+                            <span class="w-28 capitalize">{{ item.status.replace('_', ' ') }}</span>
+                            <div class="bg-muted h-2 flex-1 overflow-hidden rounded">
+                                <div class="bg-primary h-2" :style="{ width: funnelWidth(item.count) }" />
+                            </div>
+                            <span class="w-8 text-right">{{ item.count }}</span>
+                        </div>
+                    </CardContent>
+                </Card>
             </template>
 
-            <!-- Admin Stats -->
             <template v-else>
                 <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <Card class="shadow-sm hover:shadow-md transition-shadow">
+                    <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">Total Users</CardTitle>
-                            <Users class="h-4 w-4 text-muted-foreground" />
+                            <Users class="text-muted-foreground h-4 w-4" />
                         </CardHeader>
                         <CardContent>
-                            <div class="text-2xl font-bold">--</div>
-                            <p class="text-xs text-muted-foreground">Registered users</p>
+                            <div class="text-2xl font-bold">{{ display(stats?.total_users) }}</div>
+                            <p class="text-muted-foreground text-xs">{{ stats?.job_seekers || 0 }} seekers · {{ stats?.hr_professionals || 0 }} HR</p>
                         </CardContent>
                     </Card>
-                    <Card class="shadow-sm hover:shadow-md transition-shadow">
+                    <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">Companies</CardTitle>
-                            <Building2 class="h-4 w-4 text-muted-foreground" />
+                            <Building2 class="text-muted-foreground h-4 w-4" />
                         </CardHeader>
                         <CardContent>
-                            <div class="text-2xl font-bold">--</div>
-                            <p class="text-xs text-muted-foreground">Registered companies</p>
+                            <div class="text-2xl font-bold">{{ display(stats?.companies) }}</div>
+                            <p class="text-muted-foreground text-xs">{{ stats?.job_postings || 0 }} job postings</p>
                         </CardContent>
                     </Card>
-                    <Card class="shadow-sm hover:shadow-md transition-shadow">
+                    <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">Revenue</CardTitle>
-                            <CreditCard class="h-4 w-4 text-muted-foreground" />
+                            <CreditCard class="text-muted-foreground h-4 w-4" />
                         </CardHeader>
                         <CardContent>
-                            <div class="text-2xl font-bold">$0</div>
-                            <p class="text-xs text-muted-foreground">Total revenue</p>
+                            <div class="text-2xl font-bold">${{ display(stats?.revenue) }}</div>
+                            <p class="text-muted-foreground text-xs">Successful payments</p>
                         </CardContent>
                     </Card>
-                    <Card class="shadow-sm hover:shadow-md transition-shadow">
+                    <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">Growth</CardTitle>
-                            <TrendingUp class="h-4 w-4 text-muted-foreground" />
+                            <TrendingUp class="text-muted-foreground h-4 w-4" />
                         </CardHeader>
                         <CardContent>
-                            <div class="text-2xl font-bold">--</div>
-                            <p class="text-xs text-muted-foreground">Platform growth</p>
+                            <div class="text-2xl font-bold">{{ display(stats?.growth) }}%</div>
+                            <p class="text-muted-foreground text-xs">Users vs last month</p>
                         </CardContent>
                     </Card>
                 </div>
             </template>
 
-            <!-- Quick Actions -->
             <div>
-                <h2 class="text-xl font-semibold mb-4">Quick Actions</h2>
-                <!-- Job Seeker Quick Actions -->
+                <h2 class="mb-4 text-xl font-semibold">Quick Actions</h2>
                 <template v-if="userRole === 'job_seeker'">
                     <div class="grid gap-4 md:grid-cols-3">
-                        <Card class="shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
+                        <Card class="group shadow-sm">
                             <Link :href="cvReview()">
                                 <CardHeader>
-                                    <CardTitle class="flex items-center gap-2 group-hover:text-primary transition-colors">
+                                    <CardTitle class="group-hover:text-primary flex items-center gap-2 transition-colors">
                                         <FileText class="h-5 w-5" />
                                         CV Review
                                     </CardTitle>
                                     <CardDescription>Upload and get feedback on your resume</CardDescription>
                                 </CardHeader>
-                                <CardContent>
-                                    <Button variant="outline" class="w-full group-hover:border-primary">
-                                        Get Started
-                                    </Button>
-                                </CardContent>
                             </Link>
                         </Card>
-                        <Card class="shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
-                            <Link :href="atsScoring()">
+                        <Card class="group shadow-sm">
+                            <Link :href="jobApplications()">
                                 <CardHeader>
-                                    <CardTitle class="flex items-center gap-2 group-hover:text-primary transition-colors">
+                                    <CardTitle class="group-hover:text-primary flex items-center gap-2 transition-colors">
                                         <Target class="h-5 w-5" />
-                                        ATS Scoring
+                                        Applications
                                     </CardTitle>
-                                    <CardDescription>Check resume compatibility with job descriptions</CardDescription>
+                                    <CardDescription>Track jobs you have applied to</CardDescription>
                                 </CardHeader>
-                                <CardContent>
-                                    <Button variant="outline" class="w-full group-hover:border-primary">
-                                        Analyze Now
-                                    </Button>
-                                </CardContent>
                             </Link>
                         </Card>
-                        <Card class="shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
-                            <Link :href="portfolio()">
+                        <Card class="group shadow-sm">
+                            <Link :href="interviews()">
                                 <CardHeader>
-                                    <CardTitle class="flex items-center gap-2 group-hover:text-primary transition-colors">
+                                    <CardTitle class="group-hover:text-primary flex items-center gap-2 transition-colors">
                                         <FolderKanban class="h-5 w-5" />
-                                        Portfolio
+                                        Interviews
                                     </CardTitle>
-                                    <CardDescription>Build and showcase your project portfolio</CardDescription>
+                                    <CardDescription>Complete assigned recruitment interviews</CardDescription>
                                 </CardHeader>
-                                <CardContent>
-                                    <Button variant="outline" class="w-full group-hover:border-primary">
-                                        View Portfolio
-                                    </Button>
-                                </CardContent>
                             </Link>
                         </Card>
                     </div>
                 </template>
 
-                <!-- HR Professional Quick Actions -->
                 <template v-else-if="userRole === 'hr_professional'">
                     <div class="grid gap-4 md:grid-cols-3">
-                        <Card class="shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
-                            <Link :href="postJobs()">
-                                <CardHeader>
-                                    <CardTitle class="flex items-center gap-2 group-hover:text-primary transition-colors">
-                                        <Briefcase class="h-5 w-5" />
-                                        Post Jobs
-                                    </CardTitle>
-                                    <CardDescription>Create new job postings</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <Button variant="outline" class="w-full group-hover:border-primary">
-                                        Post Job
-                                    </Button>
-                                </CardContent>
-                            </Link>
-                        </Card>
-                        <Card class="shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
+                        <Card class="group shadow-sm">
                             <Link :href="reviewCandidates()">
                                 <CardHeader>
-                                    <CardTitle class="flex items-center gap-2 group-hover:text-primary transition-colors">
+                                    <CardTitle class="group-hover:text-primary flex items-center gap-2 transition-colors">
                                         <Users class="h-5 w-5" />
                                         Review Candidates
                                     </CardTitle>
-                                    <CardDescription>Browse and review candidate profiles</CardDescription>
+                                    <CardDescription>Move applicants through the pipeline</CardDescription>
                                 </CardHeader>
-                                <CardContent>
-                                    <Button variant="outline" class="w-full group-hover:border-primary">
-                                        View Candidates
-                                    </Button>
-                                </CardContent>
+                            </Link>
+                        </Card>
+                        <Card class="group shadow-sm">
+                            <Link :href="rankings()">
+                                <CardHeader>
+                                    <CardTitle class="group-hover:text-primary flex items-center gap-2 transition-colors">
+                                        <ListOrdered class="h-5 w-5" />
+                                        Rankings
+                                    </CardTitle>
+                                    <CardDescription>See weighted shortlists per job</CardDescription>
+                                </CardHeader>
+                            </Link>
+                        </Card>
+                        <Card class="group shadow-sm">
+                            <Link :href="reports()">
+                                <CardHeader>
+                                    <CardTitle class="group-hover:text-primary flex items-center gap-2 transition-colors">
+                                        <BarChart3 class="h-5 w-5" />
+                                        Reports
+                                    </CardTitle>
+                                    <CardDescription>Funnel, interview volume, and score spread</CardDescription>
+                                </CardHeader>
                             </Link>
                         </Card>
                     </div>
                 </template>
 
-                <!-- Admin Quick Actions -->
                 <template v-else>
                     <div class="grid gap-4 md:grid-cols-3">
-                        <Card class="shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
+                        <Card class="group shadow-sm">
                             <Link :href="userManagement()">
                                 <CardHeader>
-                                    <CardTitle class="flex items-center gap-2 group-hover:text-primary transition-colors">
+                                    <CardTitle class="group-hover:text-primary flex items-center gap-2 transition-colors">
                                         <Users class="h-5 w-5" />
                                         User Management
                                     </CardTitle>
                                     <CardDescription>Manage all platform users</CardDescription>
                                 </CardHeader>
-                                <CardContent>
-                                    <Button variant="outline" class="w-full group-hover:border-primary">
-                                        Manage Users
-                                    </Button>
-                                </CardContent>
                             </Link>
                         </Card>
-                        <Card class="shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
+                        <Card class="group shadow-sm">
                             <Link :href="analytics()">
                                 <CardHeader>
-                                    <CardTitle class="flex items-center gap-2 group-hover:text-primary transition-colors">
+                                    <CardTitle class="group-hover:text-primary flex items-center gap-2 transition-colors">
                                         <BarChart3 class="h-5 w-5" />
                                         Analytics
                                     </CardTitle>
                                     <CardDescription>View platform analytics and insights</CardDescription>
                                 </CardHeader>
-                                <CardContent>
-                                    <Button variant="outline" class="w-full group-hover:border-primary">
-                                        View Analytics
-                                    </Button>
-                                </CardContent>
                             </Link>
                         </Card>
-                        <Card class="shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
-                            <Link :href="payments()">
+                        <Card class="group shadow-sm">
+                            <Link :href="adminPayments()">
                                 <CardHeader>
-                                    <CardTitle class="flex items-center gap-2 group-hover:text-primary transition-colors">
+                                    <CardTitle class="group-hover:text-primary flex items-center gap-2 transition-colors">
                                         <CreditCard class="h-5 w-5" />
                                         Payments
                                     </CardTitle>
                                     <CardDescription>Manage payments and subscriptions</CardDescription>
                                 </CardHeader>
-                                <CardContent>
-                                    <Button variant="outline" class="w-full group-hover:border-primary">
-                                        Manage Payments
-                                    </Button>
-                                </CardContent>
                             </Link>
                         </Card>
                     </div>
                 </template>
             </div>
 
-            <!-- Recent Activity -->
             <div>
-                <h2 class="text-xl font-semibold mb-4">Recent Activity</h2>
+                <h2 class="mb-4 text-xl font-semibold">Recent Activity</h2>
                 <Card class="shadow-sm">
                     <CardContent class="pt-6">
-                        <div class="flex flex-col items-center justify-center py-8 text-center">
-                            <Clock class="h-12 w-12 text-muted-foreground mb-4" />
-                            <p class="text-sm text-muted-foreground">
-                                No recent activity. Start using our tools to see your progress here.
+                        <div v-if="activity && activity.length > 0" class="space-y-3">
+                            <Link
+                                v-for="(item, index) in activity"
+                                :key="index"
+                                :href="item.href || dashboard().url"
+                                class="hover:bg-muted/50 flex items-start justify-between rounded-md p-3"
+                            >
+                                <div>
+                                    <p class="text-sm font-medium">{{ item.title }}</p>
+                                    <p class="text-muted-foreground text-xs capitalize">{{ item.detail }}</p>
+                                </div>
+                                <span class="text-muted-foreground text-xs">{{ formatTime(item.at) }}</span>
+                            </Link>
+                        </div>
+                        <div v-else class="flex flex-col items-center justify-center py-8 text-center">
+                            <Clock class="text-muted-foreground mb-4 h-12 w-12" />
+                            <p class="text-muted-foreground text-sm">
+                                No recent activity yet.
                             </p>
                         </div>
                     </CardContent>

@@ -24,6 +24,18 @@ export type AppPageProps<
     quote: { message: string; author: string };
     auth: Auth;
     sidebarOpen: boolean;
+    notifications?: {
+        unread: number;
+        recent: Array<{
+            id: string;
+            title: string;
+            body: string;
+            url: string;
+            type: string;
+            read: boolean;
+            created_at?: string | null;
+        }>;
+    };
 };
 
 export type UserRole = 'job_seeker' | 'hr_professional' | 'admin';

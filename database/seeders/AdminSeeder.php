@@ -15,7 +15,7 @@ class AdminSeeder extends Seeder
     {
         User::create([
             'name' => 'Admin',
-            'email' => 'admin@talenttune.com',
+            'email' => 'admin@hirely.test',
             'password' => Hash::make('password'),
             'role' => 'admin',
             'email_verified_at' => now(),

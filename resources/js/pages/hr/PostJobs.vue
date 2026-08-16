@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { postJobs } from '@/routes';
 import postJobsRoutes from '@/routes/post-jobs';
 import InputError from '@/components/InputError.vue';
+import PlanQuotaNotice from '@/components/PlanQuotaNotice.vue';
+import { type PlanQuota } from '@/types/plan-quota';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { Briefcase, Plus, MapPin, DollarSign, Edit, Trash2, Clock } from 'lucide-vue-next';
@@ -33,6 +35,7 @@ const props = defineProps<{
         id: number;
         name: string;
     }>;
+    quota?: PlanQuota;
 }>();
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -65,7 +68,13 @@ const form = ref({
 
 const skillInput = ref('');
 
+const canCreate = computed(() => props.quota?.allowed !== false);
+
 const openDialog = (job?: any) => {
+    if (!job && !canCreate.value) {
+        return;
+    }
+
     editingJob.value = job || null;
     if (job) {
         form.value = {
@@ -167,10 +176,12 @@ const getStatusColor = (status: string) => {
                     <p class="text-muted-foreground mt-2">
                         Create and manage job postings for your organization
                     </p>
+                    <PlanQuotaNotice class="mt-3" :quota="quota" />
+                    <InputError class="mt-2" :message="errors.plan" />
                 </div>
                 <Dialog :open="isDialogOpen" @update:open="(val) => { isDialogOpen = val; if (!val) editingJob = null; }">
                     <DialogTrigger as-child>
-                        <Button @click="openDialog()">
+                        <Button :disabled="!canCreate" @click="openDialog()">
                             <Plus class="mr-2 h-4 w-4" />
                             Post New Job
                         </Button>
@@ -377,7 +388,7 @@ const getStatusColor = (status: string) => {
                         <CardDescription>Start posting job vacancies to attract candidates</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <Button variant="outline" class="w-full" @click="openDialog()">
+                        <Button variant="outline" class="w-full" :disabled="!canCreate" @click="openDialog()">
                             <Plus class="mr-2 h-4 w-4" />
                             Create First Job Posting
                         </Button>

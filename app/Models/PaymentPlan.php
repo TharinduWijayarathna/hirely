@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PaymentPlan extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'name',
         'display_name',
@@ -17,6 +20,7 @@ class PaymentPlan extends Model
         'stripe_price_id',
         'stripe_product_id',
         'features',
+        'limits',
         'is_active',
         'target_role',
         'sort_order',
@@ -25,6 +29,7 @@ class PaymentPlan extends Model
     protected $casts = [
         'amount' => 'decimal:2',
         'features' => 'array',
+        'limits' => 'array',
         'is_active' => 'boolean',
     ];
 

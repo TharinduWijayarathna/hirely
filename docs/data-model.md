@@ -9,17 +9,26 @@ erDiagram
   companies ||--o{ job_postings : "optional company"
   users ||--o{ job_applications : applies
   job_postings ||--o{ job_applications : receives
-  users ||--o{ mock_interview_sessions : practices
+  users ||--o{ cv_documents : uploads
+  cv_documents ||--o{ ats_analyses : scores
+  users ||--o{ ats_analyses : runs
+  job_applications }o--o| cv_documents : "optional cv"
   users ||--o{ portfolio_projects : owns
   users ||--o{ skill_expectations : owns
   users ||--o{ subscriptions : has
   users ||--o{ payments : has
+  users ||--o{ interview_templates : configures
+  interview_templates ||--o{ interviews : generates
+  job_applications ||--o{ interviews : "assigned"
+  users ||--o{ interviews : "candidate"
   payment_plans ||--o{ subscriptions : "plan"
   payment_plans ||--o{ payments : "plan"
   subscriptions ||--o{ payments : "optional"
 ```
 
-There is no table for parsed CVs, interview templates, scored answers, rankings, comparisons, in-app notifications, or human-review decisions.
+There is no table for in-app notifications. Ranking snapshots live on `job_applications` (`ranking_score`, `ranking_position`, `ranking_breakdown`, `ranked_at`). Human review of AI interview scores lives on `interviews` (`review_status`, `human_score`, `human_notes`, `review_audit`).
+
+Recruitment interviews use `interview_templates` and `interviews` (linked to `job_applications`). Mock practice interviews remain on `mock_interview_sessions`.
 
 ## Tables
 
@@ -46,20 +55,29 @@ Owned by `user_id` (the posting HR user), not by a required company.
 
 ### `job_applications`
 
-Seeker application to a posting: optional `cover_letter`, `resume_path` (string, not a real upload), status (`pending` | `reviewing` | `shortlisted` | `interviewed` | `accepted` | `rejected`), HR `notes`, `applied_at`.
+Seeker application to a posting: optional `cover_letter`, `resume_path` (string, not a real upload), status (`pending` | `reviewing` | `shortlisted` | `interviewed` | `accepted` | `rejected`), HR `notes`, `applied_at`, plus ranking snapshot columns (`ranking_score`, `ranking_position`, JSON `ranking_breakdown`, `ranked_at`).
 
 ### `mock_interview_sessions`
 
-Practice interviews:
+Practice interviews for job seekers. Not linked to a job or application.
 
-- `type`: `technical` | `behavioral` | `mixed`
-- `difficulty`: `beginner` | `intermediate` | `advanced`
-- `mode`: `text` | `voice`
-- `status`: `pending` | `in_progress` | `completed` | `cancelled`
-- JSON `questions`, `answers`, `conversation_history`, `feedback`
-- `score`, `started_at`, `completed_at`, `duration_minutes`
+### `interview_templates`
 
-Not linked to a job or application.
+HR-configured recruitment interviews: question count, duration, difficulty, mode, mix percentages (technical / behavioral / scenario / CV), evaluation criteria, optional `job_id`, `company_id`.
+
+### `interviews`
+
+Assigned recruitment interviews: template, job application, candidate, questions/answers/feedback/score, status.
+
+On completion the evaluator stores JSON `evaluation` (overall score, rationale, confidence, strengths, weaknesses, dimension scores with evidence, per-answer scores) and `ai_score`. Template `evaluation_criteria` are copied onto `criteria`. HR review columns: `human_score`, `human_notes`, `review_status` (`pending_review` | `accepted` | `edited` | `rejected`), `reviewed_by`, `reviewed_at`, JSON `review_audit`. Effective `score` is the AI score until an HR edit replaces it.
+
+### `cv_documents`
+
+Uploaded resumes: original name, private `path`/`disk`, parsed text, JSON `extraction`, JSON `review`, `review_score`, status (`pending` | `processed` | `failed`).
+
+### `ats_analyses`
+
+CV-to-job compatibility runs: optional `job_id`, job description, score, JSON analysis (matched/missing skills).
 
 ### `portfolio_projects`
 
@@ -71,13 +89,17 @@ Self-reported skill goals: name, description, `current_level` / `target_level` (
 
 ### Billing
 
-- `payment_plans` — amount, interval, Stripe ids, JSON `features`, `target_role`, `is_active`
+- `payment_plans` — amount, interval, Stripe ids, JSON `features`, JSON `limits` (numeric caps or `null` for unlimited; booleans for feature flags), `target_role`, `is_active`
 - `subscriptions` — Stripe subscription id, status, period dates
 - `payments` — amount, status, Stripe payment intent id
 
+### `notifications`
+
+Laravel database notifications (UUID id, morphs `notifiable`, JSON `data` with type/title/body/url, `read_at`).
+
 ## Models without extra domain tables
 
-Laravel `Notifiable` is on `User`, but there is no `notifications` usage beyond Fortify mail. No `interviews`, `cv_analyses`, `rankings`, or `audit_logs` models exist.
+Laravel `Notifiable` is on `User`. Recruitment events write to the `notifications` table and send mail. Interview HITL audit remains JSON on `interviews`; ranking snapshots remain on `job_applications`.
 
 ## Suggested model additions (not implemented)
 
@@ -85,11 +107,4 @@ These are the minimum new entities implied by the unimplemented product capabili
 
 | Proposed table | Supports |
 | --- | --- |
-| `candidate_profiles` / `cv_documents` / `cv_extractions` | CV upload and structured extraction |
-| `interview_templates` | Configurable question mix, duration, weights, criteria |
-| `interviews` | Recruitment interview tied to application + template |
-| `interview_questions` / `interview_answers` | Stored Q&A with category and weight |
-| `evaluations` | Scores, strengths/weaknesses, explanations, human override |
-| `rankings` | Ordered shortlist per job |
-| `notifications` (database channel) | In-app notification system |
-| `audit_events` | HITL decisions and score changes |
+| (none remaining for the 23-item core) | Remaining work is hosting-provider cutover and extras (SSO, virus scan, SMS, multi-role orgs) |

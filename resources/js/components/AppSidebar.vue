@@ -16,9 +16,10 @@ import { edit as profileEdit } from '@/routes/profile';
 import { cvReview } from '@/routes';
 import { atsScoring } from '@/routes';
 import { mockInterview } from '@/routes';
-import { portfolio, profileScore, skillExpectations, jobApplications, browseJobs } from '@/routes';
-import { postJobs, reviewCandidates, filterCandidates, subscriptions } from '@/routes';
-import { userManagement, analytics, payments, companyManagement, hrManagement, jobSeekerManagement } from '@/routes';
+import { portfolio, profileScore, skillExpectations, jobApplications, browseJobs, interviews } from '@/routes';
+import { postJobs, reviewCandidates, filterCandidates, subscriptions, interviewTemplates, interviewResults, rankings, reports, companySettings } from '@/routes';
+import { userManagement, analytics, companyManagement, hrManagement, jobSeekerManagement } from '@/routes';
+import { payments as adminPayments } from '@/routes/admin';
 import { type NavItem, type UserRole } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
 import {
@@ -38,6 +39,8 @@ import {
     Building2,
     UserCog,
     ClipboardList,
+    ClipboardCheck,
+    ListOrdered,
 } from 'lucide-vue-next';
 import { computed } from 'vue';
 import AppLogo from './AppLogo.vue';
@@ -66,6 +69,11 @@ const jobSeekerNavItems: NavItem[] = [
         title: 'Mock Interview',
         href: mockInterview(),
         icon: Video,
+    },
+    {
+        title: 'Interviews',
+        href: interviews(),
+        icon: ClipboardList,
     },
     {
         title: 'Portfolio',
@@ -122,6 +130,31 @@ const hrProfessionalNavItems: NavItem[] = [
         icon: FileSearch,
     },
     {
+        title: 'Interview Templates',
+        href: interviewTemplates(),
+        icon: ClipboardList,
+    },
+    {
+        title: 'Interview Results',
+        href: interviewResults(),
+        icon: ClipboardCheck,
+    },
+    {
+        title: 'Rankings',
+        href: rankings(),
+        icon: ListOrdered,
+    },
+    {
+        title: 'Reports',
+        href: reports(),
+        icon: BarChart3,
+    },
+    {
+        title: 'Company',
+        href: companySettings(),
+        icon: Building2,
+    },
+    {
         title: 'Subscriptions',
         href: subscriptions(),
         icon: CreditCard,
@@ -162,7 +195,7 @@ const adminNavItems: NavItem[] = [
     },
     {
         title: 'Payments',
-        href: payments(),
+        href: adminPayments(),
         icon: CreditCard,
     }
 ];

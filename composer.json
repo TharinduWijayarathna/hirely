@@ -1,21 +1,24 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/vue-starter-kit",
+    "name": "hirely/hirely",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
+    "description": "Hirely — AI-assisted recruitment and career preparation.",
     "keywords": [
+        "hirely",
         "laravel",
-        "framework"
+        "recruitment"
     ],
     "license": "MIT",
     "require": {
         "php": "^8.2",
-        "google/cloud-text-to-speech": "^2.6",
         "inertiajs/inertia-laravel": "^2.0",
         "laravel/fortify": "^1.30",
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
         "laravel/wayfinder": "^0.1.9",
+        "league/flysystem-aws-s3-v3": "^3.29",
+        "predis/predis": "^2.3",
+        "smalot/pdfparser": "^2.12",
         "stripe/stripe-php": "^18.1"
     },
     "require-dev": {

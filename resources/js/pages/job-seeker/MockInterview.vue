@@ -6,9 +6,12 @@ import { Label } from '@/components/ui/label';
 import { mockInterview } from '@/routes';
 import mockInterviewRoutes from '@/routes/mock-interview';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router } from '@inertiajs/vue3';
+import PlanQuotaNotice from '@/components/PlanQuotaNotice.vue';
+import { type PlanQuota } from '@/types/plan-quota';
+import InputError from '@/components/InputError.vue';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { Video, Play, Mic, Clock, TrendingUp, CheckCircle2, TrendingDown, MessageSquare, Volume2, X } from 'lucide-vue-next';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const props = defineProps<{
@@ -27,7 +30,12 @@ const props = defineProps<{
         average_score: number;
         total_time: number;
     };
+    quota?: PlanQuota;
 }>();
+
+const page = usePage();
+const errors = computed(() => page.props.errors || {});
+const canStart = computed(() => props.quota?.allowed !== false);
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -49,6 +57,9 @@ const selectMode = (mode: string) => {
 };
 
 const startInterview = () => {
+    if (!canStart.value) {
+        return;
+    }
     if (!selectedMode.value) {
         alert('Please select a mode (Voice or Text)');
         return;
@@ -127,6 +138,8 @@ const closeResults = () => {
                 <p class="text-muted-foreground mt-2">
                     Practice with AI-powered interviews and get detailed feedback on your performance
                 </p>
+                <PlanQuotaNotice class="mt-3" :quota="quota" />
+                <InputError class="mt-2" :message="errors.plan" />
             </div>
 
             <!-- Quick Start Card -->
@@ -216,7 +229,7 @@ const closeResults = () => {
                                 <option value="advanced">Advanced</option>
                             </select>
                         </div>
-                        <Button size="lg" class="w-full" :disabled="!selectedMode || !selectedType" @click="startInterview">
+                        <Button size="lg" class="w-full" :disabled="!canStart || !selectedMode || !selectedType" @click="startInterview">
                             <Play class="mr-2 h-4 w-4" />
                             Start Interview Session
                         </Button>

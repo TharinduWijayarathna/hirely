@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Job;
 use App\Models\JobApplication;
 use App\Models\User;
+use App\Services\RecruitmentNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -15,34 +16,47 @@ class CandidateController extends Controller
 {
     public function index(Request $request): Response
     {
-        // Get all jobs posted by this HR professional
-        $jobs = Job::where('user_id', Auth::id())->pluck('id');
+        $jobs = Job::visibleTo(Auth::user())->pluck('id');
 
-        // Get all applications for those jobs
         $applications = JobApplication::whereIn('job_id', $jobs)
-            ->with(['user', 'job.company'])
+            ->with(['user.latestProcessedCv', 'job.company', 'interviews'])
             ->latest()
             ->get();
 
+        $templates = \App\Models\InterviewTemplate::visibleTo(Auth::user())
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'job_id', 'difficulty', 'mode']);
+
         return Inertia::render('hr/ReviewCandidates', [
             'applications' => $applications,
+            'templates' => $templates,
         ]);
     }
 
     public function filter(Request $request): Response
     {
-        $query = User::where('role', 'job_seeker');
+        $query = User::where('role', 'job_seeker')->with('latestProcessedCv');
 
-        if ($request->has('skills') && $request->skills) {
-            // This would need more sophisticated search based on user profiles
-            // For now, just basic filtering
+        if ($request->filled('skills')) {
+            $skill = $request->string('skills')->trim()->value();
+            $query->whereHas('cvDocuments', function ($documents) use ($skill) {
+                $documents->where('status', 'processed')
+                    ->where(function ($match) use ($skill) {
+                        $match->where('parsed_text', 'like', '%'.$skill.'%')
+                            ->orWhere('extraction', 'like', '%'.$skill.'%');
+                    });
+            });
         }
 
-        if ($request->has('experience') && $request->experience !== 'any') {
-            // Filter by experience level if you have that field
+        if ($request->filled('experience') && $request->experience !== 'any') {
+            $query->whereHas('cvDocuments', function ($documents) use ($request) {
+                $documents->where('status', 'processed')
+                    ->where('extraction->experience_level', $request->experience);
+            });
         }
 
-        $candidates = $query->latest()->paginate(20);
+        $candidates = $query->latest()->paginate(20)->withQueryString();
 
         return Inertia::render('hr/FilterCandidates', [
             'candidates' => $candidates,
@@ -53,7 +67,7 @@ class CandidateController extends Controller
     public function updateApplication(Request $request, JobApplication $application)
     {
         $job = $application->job;
-        if ($job->user_id !== Auth::id()) {
+        if (! Auth::user()->canAccessJob($job)) {
             abort(403);
         }
 
@@ -62,7 +76,12 @@ class CandidateController extends Controller
             'notes' => 'nullable|string',
         ]);
 
+        $previous = $application->status;
         $application->update($validated);
+
+        if ($previous !== $validated['status']) {
+            app(RecruitmentNotifier::class)->applicationStatusChanged($application->fresh(['job', 'user']));
+        }
 
         return redirect()->route('review-candidates')->with('success', 'Application updated successfully.');
     }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\JobSeeker;
 use App\Http\Controllers\Controller;
 use App\Models\Job;
 use App\Models\JobApplication;
+use App\Services\RecruitmentNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -48,9 +49,9 @@ class JobApplicationController extends Controller
         // Filter by search
         if ($request->has('search') && $request->search) {
             $query->where(function ($q) use ($request) {
-                $q->where('title', 'like', '%' . $request->search . '%')
-                    ->orWhere('description', 'like', '%' . $request->search . '%')
-                    ->orWhere('location', 'like', '%' . $request->search . '%');
+                $q->where('title', 'like', '%'.$request->search.'%')
+                    ->orWhere('description', 'like', '%'.$request->search.'%')
+                    ->orWhere('location', 'like', '%'.$request->search.'%');
             });
         }
 
@@ -93,8 +94,12 @@ class JobApplicationController extends Controller
         $validated['user_id'] = Auth::id();
         $validated['applied_at'] = now();
         $validated['status'] = 'pending';
+        $validated['cv_document_id'] = Auth::user()->latestProcessedCv?->id;
+        $validated['resume_path'] = Auth::user()->latestProcessedCv?->path;
 
-        JobApplication::create($validated);
+        $application = JobApplication::create($validated);
+
+        app(RecruitmentNotifier::class)->applicationSubmitted($application->load(['job', 'user']));
 
         return redirect()->route('browse-jobs')->with('success', 'Application submitted successfully.');
     }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\HR;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\Job;
+use App\Services\PlanLimitService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -12,23 +13,31 @@ use Inertia\Response;
 
 class JobController extends Controller
 {
-    public function index(): Response
+    public function index(PlanLimitService $limits): Response
     {
-        $jobs = Job::where('user_id', Auth::id())
+        $user = Auth::user();
+        $jobs = Job::visibleTo($user)
             ->with('company')
             ->latest()
             ->get();
 
-        $companies = Company::all();
+        $companies = $user->company_id
+            ? Company::where('id', $user->company_id)->get()
+            : collect();
 
         return Inertia::render('hr/PostJobs', [
             'jobs' => $jobs,
             'companies' => $companies,
+            'quota' => $limits->quota($user, 'jobs'),
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, PlanLimitService $limits)
     {
+        if ($message = $limits->denyMessage(Auth::user(), 'jobs')) {
+            return redirect()->route('post-jobs')->withErrors(['plan' => $message]);
+        }
+
         $validated = $request->validate([
             'company_id' => 'nullable|exists:companies,id',
             'title' => 'required|string|max:255',
@@ -47,6 +56,7 @@ class JobController extends Controller
         ]);
 
         $validated['user_id'] = Auth::id();
+        $validated['company_id'] = Auth::user()->company_id ?: ($validated['company_id'] ?? null);
 
         Job::create($validated);
 
@@ -55,7 +65,7 @@ class JobController extends Controller
 
     public function update(Request $request, Job $job)
     {
-        if ($job->user_id !== Auth::id()) {
+        if (! Auth::user()->canAccessJob($job)) {
             abort(403);
         }
 
@@ -76,6 +86,8 @@ class JobController extends Controller
             'expires_at' => 'nullable|date|after:today',
         ]);
 
+        $validated['company_id'] = Auth::user()->company_id ?: ($validated['company_id'] ?? $job->company_id);
+
         $job->update($validated);
 
         return redirect()->route('post-jobs')->with('success', 'Job updated successfully.');
@@ -83,7 +95,7 @@ class JobController extends Controller
 
     public function destroy(Job $job)
     {
-        if ($job->user_id !== Auth::id()) {
+        if (! Auth::user()->canAccessJob($job)) {
             abort(403);
         }
 

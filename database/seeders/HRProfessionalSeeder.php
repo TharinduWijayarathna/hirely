@@ -15,7 +15,7 @@ class HRProfessionalSeeder extends Seeder
     {
         User::create([
             'name' => 'HR Professional',
-            'email' => 'hr@talenttune.com',
+            'email' => 'hr@hirely.test',
             'password' => Hash::make('password'),
             'role' => 'hr_professional',
             'email_verified_at' => now(),

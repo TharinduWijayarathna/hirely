@@ -15,7 +15,7 @@ class JobSeekerSeeder extends Seeder
     {
         User::create([
             'name' => 'Job Seeker',
-            'email' => 'jobseeker@talenttune.com',
+            'email' => 'jobseeker@hirely.test',
             'password' => Hash::make('password'),
             'role' => 'job_seeker',
             'email_verified_at' => now(),

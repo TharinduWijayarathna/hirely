@@ -5,13 +5,16 @@ import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
     DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import UserMenuContent from '@/components/UserMenuContent.vue';
 import { getInitials } from '@/composables/useInitials';
 import type { BreadcrumbItemType } from '@/types';
-import { usePage } from '@inertiajs/vue3';
+import { router, usePage } from '@inertiajs/vue3';
 import { Bell } from 'lucide-vue-next';
 import { computed } from 'vue';
 
@@ -26,6 +29,22 @@ withDefaults(
 
 const page = usePage();
 const auth = computed(() => page.props.auth);
+const notifications = computed(() => page.props.notifications || { unread: 0, recent: [] });
+
+const openNotification = (item: { id: string; url: string; read: boolean }) => {
+    if (!item.read) {
+        router.post(`/notifications/${item.id}/read`, {}, { preserveScroll: true });
+    }
+
+    if (item.url) {
+        router.visit(item.url);
+    }
+};
+
+const markAllRead = () => {
+    router.post('/notifications/read-all', {}, { preserveScroll: true });
+};
+
 </script>
 
 <template>
@@ -39,11 +58,44 @@ const auth = computed(() => page.props.auth);
             </template>
         </div>
         <div class="ml-auto flex items-center gap-2">
-            <!-- Notifications -->
-            <Button variant="ghost" size="icon" class="relative h-9 w-9">
-                <Bell class="h-5 w-5" />
-                <span class="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500"></span>
-            </Button>
+            <DropdownMenu>
+                <DropdownMenuTrigger as-child>
+                    <Button variant="ghost" size="icon" class="relative h-9 w-9">
+                        <Bell class="h-5 w-5" />
+                        <span
+                            v-if="notifications.unread > 0"
+                            class="absolute right-1 top-1 h-2 w-2 rounded-full bg-red-500"
+                        />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" class="w-80">
+                    <DropdownMenuLabel class="flex items-center justify-between">
+                        <span>Notifications</span>
+                        <button
+                            v-if="notifications.unread > 0"
+                            class="text-muted-foreground text-xs font-normal"
+                            @click="markAllRead"
+                        >
+                            Mark all read
+                        </button>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                        v-for="item in notifications.recent"
+                        :key="item.id"
+                        class="flex cursor-pointer flex-col items-start gap-1 py-2"
+                        @click="openNotification(item)"
+                    >
+                        <span class="text-sm font-medium" :class="item.read ? 'text-muted-foreground' : ''">
+                            {{ item.title }}
+                        </span>
+                        <span class="text-muted-foreground text-xs whitespace-normal">{{ item.body }}</span>
+                    </DropdownMenuItem>
+                    <div v-if="!notifications.recent?.length" class="text-muted-foreground px-2 py-6 text-center text-sm">
+                        No notifications yet.
+                    </div>
+                </DropdownMenuContent>
+            </DropdownMenu>
 
             <!-- User Menu -->
             <DropdownMenu>

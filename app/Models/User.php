@@ -13,6 +13,12 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
 
 class User extends Authenticatable
 {
+    public const ROLE_JOB_SEEKER = 'job_seeker';
+
+    public const ROLE_HR_PROFESSIONAL = 'hr_professional';
+
+    public const ROLE_ADMIN = 'admin';
+
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, TwoFactorAuthenticatable;
 
@@ -81,5 +87,128 @@ class User extends Authenticatable
     public function hasActiveSubscription(): bool
     {
         return $this->activeSubscription !== null && $this->activeSubscription->isActive();
+    }
+
+    public function hasRole(string ...$roles): bool
+    {
+        return in_array($this->role, $roles, true);
+    }
+
+    public function isJobSeeker(): bool
+    {
+        return $this->hasRole(self::ROLE_JOB_SEEKER);
+    }
+
+    public function isHrProfessional(): bool
+    {
+        return $this->hasRole(self::ROLE_HR_PROFESSIONAL);
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->hasRole(self::ROLE_ADMIN);
+    }
+
+    public function billingRouteName(): string
+    {
+        return $this->isHrProfessional() ? 'subscriptions' : 'payments';
+    }
+
+    public function canAccessJob(Job $job): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        if (! $this->isHrProfessional()) {
+            return false;
+        }
+
+        if ($this->company_id && $job->company_id) {
+            return (int) $this->company_id === (int) $job->company_id;
+        }
+
+        return (int) $job->user_id === (int) $this->id;
+    }
+
+    public function canAccessInterview(Interview $interview): bool
+    {
+        $interview->loadMissing('job');
+
+        return $interview->job !== null && $this->canAccessJob($interview->job);
+    }
+
+    public function portfolioProjects(): HasMany
+    {
+        return $this->hasMany(PortfolioProject::class);
+    }
+
+    public function skillExpectations(): HasMany
+    {
+        return $this->hasMany(SkillExpectation::class);
+    }
+
+    public function interviews(): HasMany
+    {
+        return $this->hasMany(Interview::class, 'candidate_id');
+    }
+
+    public function cvDocuments(): HasMany
+    {
+        return $this->hasMany(CvDocument::class);
+    }
+
+    public function latestProcessedCv(): HasOne
+    {
+        return $this->hasOne(CvDocument::class)->ofMany(
+            ['id' => 'max'],
+            fn ($query) => $query->where('status', 'processed')
+        );
+    }
+
+    public function atsAnalyses(): HasMany
+    {
+        return $this->hasMany(AtsAnalysis::class);
+    }
+
+    public function candidateContext(): string
+    {
+        $parts = [];
+
+        $cv = $this->latestProcessedCv;
+        if ($cv?->extraction) {
+            $extraction = $cv->extraction;
+            if (! empty($extraction['summary'])) {
+                $parts[] = 'CV summary: '.$extraction['summary'];
+            }
+            $cvSkills = array_filter($extraction['skills'] ?? []);
+            if ($cvSkills !== []) {
+                $parts[] = 'CV skills: '.implode(', ', $cvSkills);
+            }
+            if (! empty($extraction['relevant_experience'])) {
+                $parts[] = 'Relevant experience: '.implode('; ', $extraction['relevant_experience']);
+            }
+        }
+
+        $skills = $this->skillExpectations()->pluck('skill_name')->filter()->all();
+        if ($skills !== []) {
+            $parts[] = 'Skills: '.implode(', ', $skills);
+        }
+
+        $projects = $this->portfolioProjects()
+            ->get(['title', 'description', 'technologies'])
+            ->map(function (PortfolioProject $project): string {
+                $tech = is_array($project->technologies) ? implode(', ', $project->technologies) : '';
+
+                return trim($project->title.($tech !== '' ? " ({$tech})" : '').($project->description ? ": {$project->description}" : ''));
+            })
+            ->filter()
+            ->all();
+
+        if ($projects !== []) {
+            $parts[] = 'Projects: '.implode('; ', $projects);
+        }
+
+        return implode("\n", $parts);
     }
 }

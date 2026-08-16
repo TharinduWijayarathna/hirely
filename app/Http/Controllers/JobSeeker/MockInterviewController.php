@@ -5,6 +5,7 @@ namespace App\Http\Controllers\JobSeeker;
 use App\Http\Controllers\Controller;
 use App\Models\MockInterviewSession;
 use App\Services\AIService;
+use App\Services\PlanLimitService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -13,19 +14,20 @@ use Inertia\Response;
 
 class MockInterviewController extends Controller
 {
-    public function index(): Response
+    public function index(PlanLimitService $limits): Response
     {
-        $sessions = MockInterviewSession::where('user_id', Auth::id())
+        $user = Auth::user();
+        $sessions = MockInterviewSession::where('user_id', $user->id)
             ->latest()
             ->take(10)
             ->get();
 
         $stats = [
-            'total' => MockInterviewSession::where('user_id', Auth::id())->count(),
-            'average_score' => MockInterviewSession::where('user_id', Auth::id())
+            'total' => MockInterviewSession::where('user_id', $user->id)->count(),
+            'average_score' => MockInterviewSession::where('user_id', $user->id)
                 ->whereNotNull('score')
                 ->avg('score') ?? 0,
-            'total_time' => MockInterviewSession::where('user_id', Auth::id())
+            'total_time' => MockInterviewSession::where('user_id', $user->id)
                 ->whereNotNull('duration_minutes')
                 ->sum('duration_minutes') ?? 0,
         ];
@@ -33,11 +35,16 @@ class MockInterviewController extends Controller
         return Inertia::render('job-seeker/MockInterview', [
             'sessions' => $sessions,
             'stats' => $stats,
+            'quota' => $limits->quota($user, 'mock_interviews'),
         ]);
     }
 
-    public function store(Request $request, AIService $aiService)
+    public function store(Request $request, AIService $aiService, PlanLimitService $limits)
     {
+        if ($message = $limits->denyMessage(Auth::user(), 'mock_interviews')) {
+            return redirect()->route('mock-interview')->withErrors(['plan' => $message]);
+        }
+
         $validated = $request->validate([
             'type' => 'required|in:technical,behavioral,mixed',
             'difficulty' => 'required|in:beginner,intermediate,advanced',
@@ -68,6 +75,68 @@ class MockInterviewController extends Controller
 
         return redirect()->route('mock-interview.session', $session->id)
             ->with('success', 'Interview session created successfully.');
+    }
+
+    public function followUp(Request $request, MockInterviewSession $session, AIService $aiService)
+    {
+        if ($session->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'question' => 'required|string',
+            'answer' => 'required|string|min:2',
+            'answers' => 'nullable|array',
+        ]);
+
+        $answers = array_merge($session->answers ?? [], $validated['answers'] ?? [
+            $validated['question'] => $validated['answer'],
+        ]);
+        $questions = array_values($session->questions ?? []);
+        $followUpCount = collect($questions)->filter(function ($question) {
+            if (is_array($question)) {
+                return (bool) ($question['follow_up'] ?? false);
+            }
+
+            return str_starts_with((string) $question, 'Follow-up:');
+        })->count();
+
+        $followUp = null;
+        if ($followUpCount < 3) {
+            $followUp = $aiService->generateFollowUpQuestion(
+                $validated['question'],
+                $validated['answer'],
+                $session->difficulty,
+            );
+        }
+
+        if ($followUp) {
+            $insertAt = count($questions);
+
+            foreach ($questions as $index => $question) {
+                $text = is_array($question) ? (string) ($question['text'] ?? '') : (string) $question;
+
+                if ($text === $validated['question']) {
+                    $insertAt = $index + 1;
+                    break;
+                }
+            }
+
+            array_splice($questions, $insertAt, 0, [[
+                'text' => $followUp,
+                'follow_up' => true,
+                'parent' => $validated['question'],
+            ]]);
+            $questions = array_values($questions);
+        }
+
+        $session->update([
+            'answers' => $answers,
+            'questions' => $questions,
+            'status' => 'in_progress',
+        ]);
+
+        return redirect()->route('mock-interview.session', $session);
     }
 
     public function session(MockInterviewSession $session): Response
@@ -114,7 +183,7 @@ class MockInterviewController extends Controller
             }
 
             // Generate AI feedback and scoring if answers are provided
-            if (isset($validated['answers']) && !empty($validated['answers']) && $session->questions) {
+            if (isset($validated['answers']) && ! empty($validated['answers']) && $session->questions) {
                 try {
                     $feedback = $aiService->generateFeedback(
                         $session->questions,
@@ -137,7 +206,7 @@ class MockInterviewController extends Controller
                     }
                 } catch (\Exception $e) {
                     // If AI feedback generation fails, continue without it
-                    Log::error('AI feedback generation failed: ' . $e->getMessage());
+                    Log::error('AI feedback generation failed: '.$e->getMessage());
                 }
             }
         }
@@ -177,7 +246,7 @@ class MockInterviewController extends Controller
         $questions = $session->questions ?? [];
 
         // Try to match the answer to a question (for tracking)
-        if (!empty($questions)) {
+        if (! empty($questions)) {
             // Get the last AI message to see what question was asked
             $lastAIMessage = null;
             for ($i = count($conversationHistory) - 2; $i >= 0; $i--) {

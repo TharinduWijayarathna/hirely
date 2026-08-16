@@ -1,0 +1,13 @@
+name: docker
+
+on:
+  workflow_dispatch:
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build application image
+        run: docker build -t hirely:ci .

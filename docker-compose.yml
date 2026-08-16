@@ -1,0 +1,112 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      APP_NAME: Hirely
+      APP_ENV: local
+      APP_URL: http://localhost:8080
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: hirely
+      DB_USERNAME: hirely
+      DB_PASSWORD: secret
+      REDIS_CLIENT: predis
+      REDIS_HOST: redis
+      CACHE_STORE: redis
+      QUEUE_CONNECTION: redis
+      SESSION_DRIVER: redis
+      MAIL_MAILER: smtp
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      MAIL_FROM_ADDRESS: hello@hirely.test
+      FILESYSTEM_DISK: local
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - app-storage:/var/www/html/storage
+
+  queue:
+    build: .
+    command: php artisan queue:work redis --sleep=1 --tries=3 --timeout=120
+    env_file:
+      - .env
+    environment:
+      APP_NAME: Hirely
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: hirely
+      DB_USERNAME: hirely
+      DB_PASSWORD: secret
+      REDIS_CLIENT: predis
+      REDIS_HOST: redis
+      QUEUE_CONNECTION: redis
+      CACHE_STORE: redis
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  scheduler:
+    build: .
+    command: php artisan schedule:work
+    env_file:
+      - .env
+    environment:
+      APP_NAME: Hirely
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: hirely
+      DB_USERNAME: hirely
+      DB_PASSWORD: secret
+      REDIS_CLIENT: predis
+      REDIS_HOST: redis
+      QUEUE_CONNECTION: redis
+      CACHE_STORE: redis
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: hirely
+      MYSQL_USER: hirely
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: secret
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+
+volumes:
+  mysql-data:
+  app-storage:

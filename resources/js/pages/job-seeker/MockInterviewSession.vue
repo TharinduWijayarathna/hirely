@@ -7,8 +7,10 @@ import { mockInterview } from '@/routes';
 import mockInterviewRoutes from '@/routes/mock-interview';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
-import { Video, Play, Clock, CheckCircle2, ArrowRight, ArrowLeft, Mic } from 'lucide-vue-next';
-import { ref, computed } from 'vue';
+import { CheckCircle2, ArrowRight, ArrowLeft, Mic, Loader2 } from 'lucide-vue-next';
+import { ref, computed, watch } from 'vue';
+
+type InterviewQuestion = string | { text: string; follow_up?: boolean };
 
 const props = defineProps<{
     session?: {
@@ -16,7 +18,7 @@ const props = defineProps<{
         type: string;
         difficulty: string;
         status: string;
-        questions?: string[];
+        questions?: InterviewQuestion[];
         answers?: Record<string, string>;
         feedback?: Record<string, any>;
         score?: number;
@@ -39,7 +41,16 @@ const page = usePage();
 const errors = computed(() => page.props.errors || {});
 
 const currentQuestionIndex = ref(0);
-const answers = ref<Record<string, string>>(props.session?.answers || {});
+const answers = ref<Record<string, string>>({ ...(props.session?.answers || {}) });
+const requestingFollowUp = ref(false);
+
+const questionText = (question?: InterviewQuestion): string => {
+    if (!question) {
+        return '';
+    }
+
+    return typeof question === 'string' ? question : question.text;
+};
 
 // Sample questions based on type (in a real app, these would come from an AI service or database)
 const sampleQuestions: Record<string, Record<string, string[]>> = {
@@ -106,11 +117,21 @@ const questions = computed(() => {
 });
 
 const currentQuestion = computed(() => questions.value[currentQuestionIndex.value]);
+const currentText = computed(() => questionText(currentQuestion.value));
 
 const totalQuestions = computed(() => questions.value.length);
 
 const isFirstQuestion = computed(() => currentQuestionIndex.value === 0);
 const isLastQuestion = computed(() => currentQuestionIndex.value === totalQuestions.value - 1);
+const currentAnswer = computed(() => answers.value[currentText.value] || '');
+const isFollowUp = computed(() => typeof currentQuestion.value !== 'string' && !!currentQuestion.value?.follow_up);
+
+watch(
+    () => props.session?.answers,
+    (value) => {
+        answers.value = { ...(value || {}) };
+    },
+);
 
 const getTypeLabel = (type: string) => {
     const labels: Record<string, string> = {
@@ -131,9 +152,34 @@ const getDifficultyLabel = (difficulty: string) => {
 };
 
 const nextQuestion = () => {
-    if (currentQuestionIndex.value < totalQuestions.value - 1) {
-        currentQuestionIndex.value++;
+    if (requestingFollowUp.value || currentQuestionIndex.value >= totalQuestions.value - 1) {
+        return;
     }
+
+    if (currentAnswer.value.trim().length < 2) {
+        currentQuestionIndex.value++;
+        return;
+    }
+
+    requestingFollowUp.value = true;
+    router.post(
+        `/mock-interview/${props.session?.id}/follow-up`,
+        {
+            question: currentText.value,
+            answer: currentAnswer.value,
+            answers: answers.value,
+        },
+        {
+            preserveScroll: true,
+            preserveState: true,
+            onFinish: () => {
+                requestingFollowUp.value = false;
+                if (currentQuestionIndex.value < questions.value.length - 1) {
+                    currentQuestionIndex.value++;
+                }
+            },
+        },
+    );
 };
 
 const previousQuestion = () => {
@@ -143,8 +189,8 @@ const previousQuestion = () => {
 };
 
 const saveAnswer = () => {
-    if (!currentQuestion.value) return;
-    answers.value[currentQuestion.value] = answers.value[currentQuestion.value] || '';
+    if (!currentText.value) return;
+    answers.value[currentText.value] = answers.value[currentText.value] || '';
 };
 
 const completeInterview = () => {
@@ -193,14 +239,14 @@ const completeInterview = () => {
                         Interview Question
                     </CardTitle>
                     <CardDescription>
-                        Take your time to think and provide a thoughtful answer
+                        {{ isFollowUp ? 'Follow-up based on your previous answer' : 'Take your time to think and provide a thoughtful answer' }}
                     </CardDescription>
                 </CardHeader>
                 <CardContent class="space-y-6">
                     <!-- Current Question -->
                     <div>
                         <Label class="mb-2 block text-base font-semibold">Question:</Label>
-                        <p class="text-lg">{{ currentQuestion }}</p>
+                        <p class="text-lg">{{ currentText }}</p>
                     </div>
 
                     <!-- Answer Input -->
@@ -208,8 +254,8 @@ const completeInterview = () => {
                         <Label for="answer">Your Answer</Label>
                         <textarea
                             id="answer"
-                            :value="answers[currentQuestion] || ''"
-                            @input="answers[currentQuestion] = ($event.target as HTMLTextAreaElement).value"
+                            :value="answers[currentText] || ''"
+                            @input="answers[currentText] = ($event.target as HTMLTextAreaElement).value"
                             @blur="saveAnswer"
                             class="w-full min-h-[200px] rounded-md border border-input bg-background px-3 py-2 text-sm"
                             placeholder="Type your answer here..."
@@ -241,8 +287,10 @@ const completeInterview = () => {
 
                         <Button
                             v-if="!isLastQuestion"
+                            :disabled="requestingFollowUp"
                             @click="nextQuestion"
                         >
+                            <Loader2 v-if="requestingFollowUp" class="mr-2 h-4 w-4 animate-spin" />
                             Next
                             <ArrowRight class="ml-2 h-4 w-4" />
                         </Button>

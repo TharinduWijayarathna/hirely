@@ -6,20 +6,28 @@ use App\Models\PaymentPlan;
 use App\Models\Subscription;
 use App\Models\User;
 use Stripe\StripeClient;
-use Stripe\Exception\ApiErrorException;
 
 class StripeService
 {
-    protected StripeClient $stripe;
+    protected ?StripeClient $stripe = null;
 
     public function __construct()
     {
         $stripeSecret = config('services.stripe.secret');
-        if (!$stripeSecret) {
+
+        if ($stripeSecret) {
+            \Stripe\Stripe::setApiKey($stripeSecret);
+            $this->stripe = new StripeClient($stripeSecret);
+        }
+    }
+
+    protected function client(): StripeClient
+    {
+        if (! $this->stripe) {
             throw new \Exception('Stripe secret key is not configured. Please set STRIPE_SECRET in your .env file.');
         }
-        \Stripe\Stripe::setApiKey($stripeSecret);
-        $this->stripe = new StripeClient($stripeSecret);
+
+        return $this->stripe;
     }
 
     /**
@@ -31,7 +39,7 @@ class StripeService
             return $user->stripe_customer_id;
         }
 
-        $customer = $this->stripe->customers->create([
+        $customer = $this->client()->customers->create([
             'email' => $user->email,
             'name' => $user->name,
             'metadata' => [
@@ -51,7 +59,7 @@ class StripeService
     public function createPriceForPlan(PaymentPlan $plan): ?\Stripe\Price
     {
         // Create product if needed
-        $product = $this->stripe->products->create([
+        $product = $this->client()->products->create([
             'name' => $plan->display_name,
             'description' => $plan->description,
         ]);
@@ -70,7 +78,7 @@ class StripeService
             'recurring' => $plan->interval === 'month' ? ['interval' => 'month'] : ['interval' => 'year'],
         ];
 
-        $price = $this->stripe->prices->create($priceData);
+        $price = $this->client()->prices->create($priceData);
 
         // Update plan with product and price IDs
         $plan->update([
@@ -114,7 +122,7 @@ class StripeService
             ],
         ];
 
-        return $this->stripe->checkout->sessions->create($sessionData);
+        return $this->client()->checkout->sessions->create($sessionData);
     }
 
     /**
@@ -124,7 +132,7 @@ class StripeService
     {
         $customerId = $this->getOrCreateCustomer($user);
 
-        return $this->stripe->checkout->sessions->create([
+        return $this->client()->checkout->sessions->create([
             'customer' => $customerId,
             'mode' => 'payment',
             'payment_method_types' => ['card'],
@@ -156,7 +164,7 @@ class StripeService
             throw new \Exception('User does not have a Stripe customer ID');
         }
 
-        return $this->stripe->billingPortal->sessions->create([
+        return $this->client()->billingPortal->sessions->create([
             'customer' => $user->stripe_customer_id,
             'return_url' => $returnUrl,
         ]);
@@ -167,7 +175,7 @@ class StripeService
      */
     public function getSubscription(string $subscriptionId): \Stripe\Subscription
     {
-        return $this->stripe->subscriptions->retrieve($subscriptionId);
+        return $this->client()->subscriptions->retrieve($subscriptionId);
     }
 
     /**
@@ -176,10 +184,10 @@ class StripeService
     public function cancelSubscription(string $subscriptionId, bool $immediately = false): \Stripe\Subscription
     {
         if ($immediately) {
-            return $this->stripe->subscriptions->cancel($subscriptionId);
+            return $this->client()->subscriptions->cancel($subscriptionId);
         }
 
-        return $this->stripe->subscriptions->update($subscriptionId, [
+        return $this->client()->subscriptions->update($subscriptionId, [
             'cancel_at_period_end' => true,
         ]);
     }
@@ -189,7 +197,7 @@ class StripeService
      */
     public function resumeSubscription(string $subscriptionId): \Stripe\Subscription
     {
-        return $this->stripe->subscriptions->update($subscriptionId, [
+        return $this->client()->subscriptions->update($subscriptionId, [
             'cancel_at_period_end' => false,
         ]);
     }
@@ -200,9 +208,9 @@ class StripeService
     public function syncSubscription(\Stripe\Subscription $stripeSubscription): Subscription
     {
         $user = User::where('stripe_customer_id', $stripeSubscription->customer)->first();
-        
+
         if (! $user) {
-            throw new \Exception('User not found for Stripe customer ID: ' . $stripeSubscription->customer);
+            throw new \Exception('User not found for Stripe customer ID: '.$stripeSubscription->customer);
         }
 
         $plan = PaymentPlan::where('stripe_price_id', $stripeSubscription->items->data[0]->price->id)->first();
@@ -226,4 +234,3 @@ class StripeService
         return $subscription;
     }
 }
-

@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Job extends Model
 {
+    use HasFactory;
+
     protected $table = 'job_postings';
 
     protected $fillable = [
@@ -47,5 +50,28 @@ class Job extends Model
     public function applications(): HasMany
     {
         return $this->hasMany(JobApplication::class);
+    }
+
+    public function interviewTemplates(): HasMany
+    {
+        return $this->hasMany(InterviewTemplate::class);
+    }
+
+    public function interviews(): HasMany
+    {
+        return $this->hasMany(Interview::class);
+    }
+
+    public function scopeVisibleTo($query, User $user)
+    {
+        if ($user->isAdmin()) {
+            return $query;
+        }
+
+        if ($user->company_id) {
+            return $query->where('company_id', $user->company_id);
+        }
+
+        return $query->where('user_id', $user->id);
     }
 }

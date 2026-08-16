@@ -1,6 +1,6 @@
 # Hirely documentation
 
-Hirely is an AI-assisted recruitment and career-preparation platform. The public welcome page currently brands the product as **TalentTune**; the repository, workspace, and this documentation use **Hirely**.
+Hirely is an AI-assisted recruitment and career-preparation platform. Public UI, `APP_NAME`, mail from-name, and seed accounts use **Hirely**.
 
 This folder is the source of truth for:
 

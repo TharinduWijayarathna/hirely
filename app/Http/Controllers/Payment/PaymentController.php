@@ -55,7 +55,7 @@ class PaymentController extends Controller
         // Handle route model binding manually
         if (is_numeric($plan)) {
             $plan = PaymentPlan::findOrFail($plan);
-        } elseif (!($plan instanceof PaymentPlan)) {
+        } elseif (! ($plan instanceof PaymentPlan)) {
             return redirect()->back()->with('error', 'Payment plan not found.');
         }
 
@@ -69,6 +69,7 @@ class PaymentController extends Controller
                     'message' => 'This plan is not available for your role.',
                 ], 400);
             }
+
             return redirect()->back()->with('error', 'This plan is not available for your role.');
         }
 
@@ -99,11 +100,11 @@ class PaymentController extends Controller
                     return response()->json([
                         'success' => true,
                         'message' => 'Free subscription activated!',
-                        'redirect_url' => route('subscriptions'),
+                        'redirect_url' => route($user->billingRouteName()),
                     ]);
                 }
 
-                return redirect()->route('subscriptions')->with('success', 'Free subscription activated!');
+                return redirect()->route($user->billingRouteName())->with('success', 'Free subscription activated!');
             }
 
             // Create price if it doesn't exist for paid plans
@@ -139,16 +140,16 @@ class PaymentController extends Controller
             // For non-AJAX requests, redirect directly
             return redirect()->away($session->url);
         } catch (\Exception $e) {
-            \Log::error('Checkout error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-            
+            \Log::error('Checkout error: '.$e->getMessage(), ['trace' => $e->getTraceAsString()]);
+
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
                     'error' => true,
-                    'message' => 'Failed to create checkout session: ' . $e->getMessage(),
+                    'message' => 'Failed to create checkout session: '.$e->getMessage(),
                 ], 500);
             }
-            
-            return redirect()->back()->with('error', 'Failed to create checkout session: ' . $e->getMessage());
+
+            return redirect()->back()->with('error', 'Failed to create checkout session: '.$e->getMessage());
         }
     }
 
@@ -165,7 +166,7 @@ class PaymentController extends Controller
 
             // Handle paid subscriptions
             if (! $sessionId) {
-                return redirect()->route('subscriptions')->with('error', 'Invalid payment session.');
+                return redirect()->route($user->billingRouteName())->with('error', 'Invalid payment session.');
             }
 
             $session = \Stripe\Checkout\Session::retrieve($sessionId, [
@@ -176,13 +177,13 @@ class PaymentController extends Controller
                 // Create or update subscription record
                 if ($session->mode === 'subscription' && $session->subscription) {
                     $stripeSubscription = $session->subscription;
-                    
+
                     // Find plan from metadata or subscription
                     $planId = $session->metadata->plan_id ?? null;
-                    if (!$planId) {
+                    if (! $planId) {
                         // Try to find plan from price ID
-                        $priceId = is_object($stripeSubscription->items->data[0]->price) 
-                            ? $stripeSubscription->items->data[0]->price->id 
+                        $priceId = is_object($stripeSubscription->items->data[0]->price)
+                            ? $stripeSubscription->items->data[0]->price->id
                             : $stripeSubscription->items->data[0]->price;
                         $plan = \App\Models\PaymentPlan::where('stripe_price_id', $priceId)->first();
                         $planId = $plan?->id;
@@ -219,22 +220,23 @@ class PaymentController extends Controller
                     ]);
                 }
 
-                return redirect()->route('subscriptions')->with('success', 'Payment successful! Your subscription is now active.');
+                return redirect()->route($user->billingRouteName())->with('success', 'Payment successful! Your subscription is now active.');
             }
 
-            return redirect()->route('subscriptions')->with('error', 'Payment session found but payment status is not complete.');
+            return redirect()->route($user->billingRouteName())->with('error', 'Payment session found but payment status is not complete.');
         } catch (\Exception $e) {
-            \Log::error('Payment success error: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-            return redirect()->route('subscriptions')->with('error', 'Payment verification failed. Please contact support if payment was deducted.');
+            \Log::error('Payment success error: '.$e->getMessage(), ['trace' => $e->getTraceAsString()]);
+
+            return redirect()->route($user->billingRouteName())->with('error', 'Payment verification failed. Please contact support if payment was deducted.');
         }
     }
 
     /**
      * Handle canceled payment
      */
-    public function cancel()
+    public function cancel(Request $request)
     {
-        return redirect()->route('subscriptions')->with('info', 'Payment was canceled.');
+        return redirect()->route($request->user()->billingRouteName())->with('info', 'Payment was canceled.');
     }
 
     /**
@@ -245,13 +247,13 @@ class PaymentController extends Controller
         $user = $request->user();
 
         try {
-            $returnUrl = route('subscriptions');
+            $returnUrl = route($user->billingRouteName());
             $session = $this->stripeService->createBillingPortalSession($user, $returnUrl);
 
             // For external Stripe URLs, use redirect()->away() to bypass Inertia
             return redirect()->away($session->url);
         } catch (\Exception $e) {
-            return redirect()->route('subscriptions')->with('error', 'Failed to access billing portal: ' . $e->getMessage());
+            return redirect()->route($user->billingRouteName())->with('error', 'Failed to access billing portal: '.$e->getMessage());
         }
     }
 
@@ -278,7 +280,7 @@ class PaymentController extends Controller
 
             return redirect()->back()->with('success', 'Subscription will be canceled at the end of the current period.');
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Failed to cancel subscription: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to cancel subscription: '.$e->getMessage());
         }
     }
 
@@ -305,7 +307,7 @@ class PaymentController extends Controller
 
             return redirect()->back()->with('success', 'Subscription resumed successfully.');
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Failed to resume subscription: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Failed to resume subscription: '.$e->getMessage());
         }
     }
 }

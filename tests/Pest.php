@@ -41,7 +41,31 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+function jobListingPayload(array $overrides = []): array
 {
-    // ..
+    return array_merge([
+        'title' => 'Backend Engineer',
+        'description' => 'Build and maintain APIs.',
+        'type' => 'full_time',
+        'remote' => 'hybrid',
+        'status' => 'active',
+    ], $overrides);
+}
+
+function subscribeToPlan(\App\Models\User $user, array $limits, array $plan = []): \App\Models\Subscription
+{
+    $paymentPlan = \App\Models\PaymentPlan::factory()->create(array_merge([
+        'target_role' => $user->role,
+        'amount' => 49,
+        'name' => 'professional',
+        'display_name' => 'Professional Plan',
+        'limits' => $limits,
+    ], $plan));
+
+    return \App\Models\Subscription::create([
+        'user_id' => $user->id,
+        'payment_plan_id' => $paymentPlan->id,
+        'status' => 'active',
+        'starts_at' => now(),
+    ]);
 }

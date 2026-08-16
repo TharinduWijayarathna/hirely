@@ -54,7 +54,39 @@ class HandleInertiaRequests extends Middleware
                     'updated_at' => $request->user()->updated_at,
                 ] : null,
             ],
+            'notifications' => $this->notifications($request),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+        ];
+    }
+
+    /**
+     * @return array{unread: int, recent: array<int, array<string, mixed>>}
+     */
+    protected function notifications(Request $request): array
+    {
+        $user = $request->user();
+
+        if (! $user) {
+            return ['unread' => 0, 'recent' => []];
+        }
+
+        return [
+            'unread' => $user->unreadNotifications()->count(),
+            'recent' => $user->notifications()
+                ->latest()
+                ->take(8)
+                ->get()
+                ->map(fn ($notification) => [
+                    'id' => $notification->id,
+                    'title' => $notification->data['title'] ?? 'Notification',
+                    'body' => $notification->data['body'] ?? '',
+                    'url' => $notification->data['url'] ?? '/dashboard',
+                    'type' => $notification->data['type'] ?? 'general',
+                    'read' => $notification->read_at !== null,
+                    'created_at' => $notification->created_at?->toIso8601String(),
+                ])
+                ->values()
+                ->all(),
         ];
     }
 }

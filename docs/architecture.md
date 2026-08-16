@@ -7,7 +7,7 @@ Hirely currently behaves as two products sharing one codebase:
 1. **Career preparation (job seeker)** — mock interviews, portfolio, skill goals, job browsing, billing.
 2. **Recruitment operations (HR / admin)** — companies, job postings, application review, user management, billing.
 
-The intended product is a single recruitment platform where CVs are parsed, interviews are generated against a job and a candidate, answers are scored with explanations, and HR ranks or compares candidates with a human in the loop. That end-to-end loop is not in the architecture yet.
+The intended product is a single recruitment platform where CVs are parsed, interviews are generated against a job and a candidate, answers are scored with explanations, and HR ranks or compares candidates with a human in the loop. That loop is in place; remaining gaps are hosting-provider cutover and extras such as virus scanning, SSO, and multi-role orgs.
 
 ## High-level diagram
 
@@ -27,7 +27,7 @@ flowchart LR
   Browser --> Speech
 ```
 
-Voice interviews talk to Laravel for conversation turns, then use the **browser** for speech-to-text and text-to-speech. `google/cloud-text-to-speech` is in Composer and npm but is not called from application code.
+Voice interviews talk to Laravel for conversation turns, then use the **browser** for speech-to-text and text-to-speech.
 
 ## Roles
 
@@ -37,7 +37,7 @@ Voice interviews talk to Laravel for conversation turns, then use the **browser*
 | `hr_professional` | Recruiters | Created by admin and optionally linked to `companies`. Sidebar shows HR nav. |
 | `admin` | Platform operators | Seeded and created via user management. Sidebar shows admin nav. |
 
-Authorization is **UI-only**. `routes/web.php` wraps almost all app routes in `auth` + `verified`. There is no role middleware, no policies, and no gates. Any authenticated verified user who knows a URL can hit HR or admin endpoints.
+Authorization is **enforced on the server**. `EnsureUserHasRole` (`role` middleware) wraps job-seeker, HR, and admin route groups. Dashboard and settings stay shared. HR job, candidate, and template queries are scoped to `company_id` when present.
 
 ## Request flow
 
@@ -54,7 +54,7 @@ app/
   Actions/Fortify/     Registration and password reset
   Http/Controllers/
     Admin/             Companies, users, HR, job seekers, payments
-    HR/                Jobs, candidate review/filter
+    HR/                Jobs, candidates, templates, interviews, rankings, reports, company settings
     JobSeeker/         Mock interviews, portfolio, skills, applications
     Payment/           Stripe checkout and subscriptions
     Settings/          Profile, password, 2FA
@@ -94,11 +94,9 @@ sequenceDiagram
 
 Missing compared with the product vision:
 
-- No `Interview` / `InterviewTemplate` / `InterviewQuestion` domain for HR-configured interviews
-- No link from a session to a `Job` or `JobApplication`
-- No CV context in prompts
-- No configurable mix, weights, duration, or evaluation criteria
-- No ranking or comparison layer on top of scores
+- No server-side interview audio storage
+- No remaining-time-budget adaptation during interviews
+- Hosting-provider TLS, backups, and live mail/S3 credentials
 
 ## Data ownership
 
@@ -106,7 +104,7 @@ Missing compared with the product vision:
 | --- | --- | --- |
 | `job_postings` | The HR user who created it (`user_id`) | Organization, with HR as actor |
 | `job_applications` | Job seeker (`user_id`) + job | Same, plus parsed CV snapshot |
-| `companies` | Admin-managed global list | Tenant; HR should only see their org |
+| `companies` | Admin-managed, with HR self-service profile for their linked org | Tenant; HR should only see their org |
 | `mock_interview_sessions` | Job seeker | Keep for practice; add a separate recruitment interview |
 
 Job creation loads `Company::all()`, so an HR user can attach a posting to any company, not only their own.
@@ -118,7 +116,7 @@ Job creation loads `Company::all()`, so an HR user can attach a posting to any c
 - Role-specific sidebar in `AppSidebar.vue`
 - Settings layout for profile / password / appearance / 2FA
 
-Dashboards (`Dashboard.vue`, `admin/Analytics.vue`, `job-seeker/CVReview.vue`, `ATSScoring.vue`, `ProfileScore.vue`) are mostly presentational. They should not be treated as architectural sources of truth until they are wired to queries.
+Dashboards, CV review, ATS, profile score, reports, and analytics are wired to live queries. Treat those pages as current unless a specific control still shows a placeholder.
 
 ## Security architecture (current vs needed)
 
@@ -127,12 +125,11 @@ Current:
 - Session cookies, CSRF, password hashing, Fortify rate limits
 - Optional TOTP 2FA
 - Email verification middleware on app routes
-- Ownership checks on some write actions (job update/delete, application withdraw, mock session access)
+- `role` middleware on job-seeker, HR, and admin route groups
+- Company-scoped HR queries, Stripe webhook signatures, interview `review_audit`
 
 Needed:
 
-- Role middleware (or policies) on every non-shared route
-- Company-scoped queries for HR
-- Stripe webhook signature verification
-- Real file-upload validation when CV storage is added
-- Audit log for AI scores and human overrides (HITL)
+- Finer-grained policies
+- File malware scanning
+- Hosting-provider secrets and backups

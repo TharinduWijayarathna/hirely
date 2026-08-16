@@ -16,6 +16,13 @@ const props = defineProps<{
             id: number;
             name: string;
             email: string;
+            latest_processed_cv?: {
+                extraction?: {
+                    skills?: string[];
+                    experience_level?: string;
+                    summary?: string | null;
+                } | null;
+            } | null;
         }>;
     };
     filters?: {
@@ -118,8 +125,19 @@ const applyFilters = () => {
                                         <Mail class="h-4 w-4" />
                                         {{ candidate.email }}
                                     </p>
+                                    <p class="text-muted-foreground mt-1 text-sm">
+                                        {{ candidate.latest_processed_cv?.extraction?.experience_level || 'No CV yet' }}
+                                    </p>
+                                    <div class="mt-2 flex flex-wrap gap-2">
+                                        <span
+                                            v-for="skill in candidate.latest_processed_cv?.extraction?.skills?.slice(0, 8) || []"
+                                            :key="skill"
+                                            class="bg-secondary rounded px-2 py-1 text-xs"
+                                        >
+                                            {{ skill }}
+                                        </span>
+                                    </div>
                                 </div>
-                                <Button variant="outline">View Profile</Button>
                             </div>
                         </div>
                     </div>

@@ -17,6 +17,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | CV storage disk
+    |--------------------------------------------------------------------------
+    |
+    | Private resume uploads. Use "s3" in production by setting CV_DISK or
+    | FILESYSTEM_DISK. Local remains the default for development and tests.
+    |
+    */
+
+    'cv' => env('CV_DISK', env('FILESYSTEM_DISK', 'local')),
+
+    /*
+    |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |

@@ -4,8 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { subscriptions } from '@/routes';
+import InputError from '@/components/InputError.vue';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { CreditCard, CheckCircle2, Crown, X, Play, ArrowUp } from 'lucide-vue-next';
 import { computed } from 'vue';
 
@@ -45,6 +46,8 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const page = usePage();
+const errors = computed(() => page.props.errors || {});
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -191,6 +194,7 @@ const getFirstPremiumPlan = () => {
                     <p class="text-muted-foreground mt-2">
                         View and manage your subscription plans and billing
                     </p>
+                    <InputError class="mt-2" :message="errors.plan" />
                 </div>
                 <Button v-if="activeSubscription && !isFreePlan" @click="handleBillingPortal" variant="outline">
                     <CreditCard class="h-4 w-4 mr-2" />
