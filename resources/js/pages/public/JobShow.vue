@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import PublicLayout from '@/layouts/PublicLayout.vue';
 import { login, register } from '@/routes';
-import { Link, router, useForm, usePage } from '@inertiajs/vue3';
+import { Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const props = defineProps<{
@@ -57,10 +57,10 @@ const submit = () => {
 
 <template>
     <PublicLayout :title="job.title" :description="`${job.title} at ${job.company?.name ?? 'Hirely'}`">
-        <section class="grid lg:grid-cols-12">
-            <div class="px-6 py-12 sm:px-10 lg:col-span-7">
-                <Link href="/jobs" class="text-sm hover:underline">Jobs</Link>
-                <p v-if="job.company" class="mt-6 text-sm tracking-wide uppercase opacity-70">
+        <section class="grid gap-6 lg:grid-cols-12">
+            <div class="pub-hero rounded-3xl px-6 py-10 sm:px-10 lg:col-span-7">
+                <Link href="/jobs" class="text-sm font-semibold text-white/80 hover:text-white">Jobs</Link>
+                <p v-if="job.company" class="mt-6 text-sm font-semibold tracking-wide text-white/80 uppercase">
                     <Link
                         v-if="job.company.slug"
                         :href="`/organization/${job.company.slug}`"
@@ -70,63 +70,49 @@ const submit = () => {
                     </Link>
                     <template v-else>{{ job.company.name }}</template>
                 </p>
-                <h1 class="display mt-3 text-[clamp(2.2rem,4.5vw,3.6rem)] leading-[0.95] font-medium tracking-[-0.04em]">
+                <h1 class="display mt-3 text-[clamp(2.2rem,4.5vw,3.4rem)] leading-[0.95] font-medium tracking-[-0.04em]">
                     {{ job.title }}
                 </h1>
-                <p class="mt-5 text-lg opacity-80">
+                <p class="mt-5 text-lg text-white/85">
                     {{ job.location || 'Location open' }} · {{ typeLabel(job.type) }} ·
                     {{ job.remote.replaceAll('_', ' ') }}
                 </p>
-                <p
-                    v-if="job.salary_min || job.salary_max"
-                    class="mt-2 text-sm opacity-70"
-                >
+                <p v-if="job.salary_min || job.salary_max" class="mt-2 text-sm text-white/75">
                     {{ job.salary_currency }}
                     {{ job.salary_min ?? '' }}
                     <template v-if="job.salary_min && job.salary_max"> – </template>
                     {{ job.salary_max ?? '' }}
                 </p>
-                <p v-if="success" class="mt-6 text-sm">{{ success }}</p>
+                <p v-if="success" class="mt-6 rounded-xl bg-white/15 px-4 py-3 text-sm">{{ success }}</p>
             </div>
-            <aside class="rule-t px-6 py-12 sm:px-10 lg:col-span-5 lg:border-t-0 lg:border-l lg:border-[rgb(28_25_21_/_0.15)]">
-                <p class="text-sm tracking-wide uppercase">Share this role</p>
-                <p class="mt-3 leading-7 opacity-80">
-                    Send this URL to a candidate. They log in as a job seeker, apply, and sit the
-                    interview this organization assigned to the posting.
+            <aside class="pub-card px-6 py-8 sm:px-8 lg:col-span-5">
+                <p class="text-sm font-semibold tracking-wide text-primary uppercase">Share this role</p>
+                <p class="mt-3 leading-7 text-muted-foreground">
+                    Send this URL to a candidate. They apply as a job seeker from this page.
                 </p>
                 <div class="mt-4 flex gap-2">
-                    <input
-                        :value="share_url"
-                        readonly
-                        class="h-12 flex-1 border border-current/20 bg-transparent px-3 text-sm"
-                    />
-                    <button type="button" class="cta shrink-0" @click="copyLink">
+                    <input :value="share_url" readonly class="pub-field flex-1 text-sm" />
+                    <button type="button" class="pub-cta shrink-0" @click="copyLink">
                         {{ copied ? 'Copied' : 'Copy' }}
                     </button>
                 </div>
             </aside>
         </section>
 
-        <section class="rule-t grid gap-10 px-6 py-12 sm:px-10 lg:grid-cols-12">
-            <div class="lg:col-span-7">
+        <section class="mt-8 grid gap-6 lg:grid-cols-12">
+            <div class="pub-card px-6 py-8 sm:px-8 lg:col-span-7">
                 <h2 class="display text-3xl">The work</h2>
                 <p class="mt-5 whitespace-pre-wrap leading-8">{{ job.description }}</p>
                 <template v-if="job.requirements">
-                    <h3 class="mt-10 text-xl">Requirements</h3>
-                    <p class="mt-4 whitespace-pre-wrap leading-8 opacity-80">{{ job.requirements }}</p>
+                    <h3 class="mt-10 text-xl font-semibold">Requirements</h3>
+                    <p class="mt-4 whitespace-pre-wrap leading-8 text-muted-foreground">{{ job.requirements }}</p>
                 </template>
                 <div v-if="job.skills?.length" class="mt-8 flex flex-wrap gap-2">
-                    <span
-                        v-for="skill in job.skills"
-                        :key="skill"
-                        class="border border-current/20 px-3 py-1 text-sm"
-                    >
-                        {{ skill }}
-                    </span>
+                    <span v-for="skill in job.skills" :key="skill" class="pub-chip">{{ skill }}</span>
                 </div>
             </div>
 
-            <div class="lg:col-span-5">
+            <div class="pub-card px-6 py-8 sm:px-8 lg:col-span-5">
                 <h2 class="display text-3xl">Apply</h2>
 
                 <div v-if="has_applied" class="mt-5 leading-7">
@@ -134,74 +120,45 @@ const submit = () => {
                     <Link
                         v-if="interview_id"
                         :href="`/interviews/${interview_id}`"
-                        class="cta mt-6 inline-block"
+                        class="pub-cta mt-6"
                     >
                         Continue interview
                     </Link>
                 </div>
 
                 <form v-else-if="can_apply" class="mt-5 space-y-4" @submit.prevent="submit">
-                    <label class="block text-sm" for="cover_letter">Cover letter</label>
+                    <label class="block text-sm font-medium" for="cover_letter">Cover letter</label>
                     <textarea
                         id="cover_letter"
                         v-model="form.cover_letter"
                         rows="8"
-                        class="w-full border border-current/20 bg-transparent px-3 py-3 text-sm"
+                        class="pub-field h-auto py-3"
                         placeholder="Why this role, in your own words."
                     />
-                    <p v-if="form.errors.cover_letter || form.errors.job_id" class="text-sm">
+                    <p v-if="form.errors.cover_letter || form.errors.job_id" class="text-sm text-destructive">
                         {{ form.errors.cover_letter || form.errors.job_id }}
                     </p>
-                    <button type="submit" class="cta" :disabled="form.processing">
+                    <button type="submit" class="pub-cta" :disabled="form.processing">
                         Submit application
                     </button>
                 </form>
 
-                <div v-else-if="guest" class="mt-5 leading-7">
-                    <p>
-                        Create a job seeker account, then apply from this page. If the company has an
-                        interview template on the role, the interview starts after you apply.
-                    </p>
-                    <div class="mt-6 flex flex-wrap gap-x-8 gap-y-3">
-                        <Link :href="`/jobs/${job.slug}/apply`" class="cta">Log in to apply</Link>
-                        <Link :href="register()" class="border-b border-current pb-0.5">Register</Link>
+                <div v-else-if="guest" class="mt-5 leading-7 text-muted-foreground">
+                    <p>Create a job seeker account, then apply from this page.</p>
+                    <div class="mt-6 flex flex-wrap gap-3">
+                        <Link :href="`/jobs/${job.slug}/apply`" class="pub-cta">Log in to apply</Link>
+                        <Link :href="register()" class="font-semibold text-primary hover:underline">Register</Link>
                     </div>
-                    <p class="mt-4 text-sm opacity-70">
+                    <p class="mt-4 text-sm">
                         Already registered?
-                        <Link :href="login()" class="underline">Log in</Link>
+                        <Link :href="login()" class="text-primary underline">Log in</Link>
                     </p>
                 </div>
 
-                <p v-else class="mt-5 leading-7 opacity-80">
-                    Applications are open to job seekers. Recruiters share this link; they review
-                    applications from Review Candidates.
+                <p v-else class="mt-5 leading-7 text-muted-foreground">
+                    Applications are open to job seekers.
                 </p>
             </div>
         </section>
     </PublicLayout>
 </template>
-
-<style scoped>
-.display {
-    font-family: Fraunces, 'Times New Roman', serif;
-}
-
-.cta {
-    background: #1c1915;
-    color: #f4efe4;
-    padding: 0.75rem 1.5rem;
-}
-
-.cta:hover {
-    background: #3a342c;
-}
-
-.rule-t {
-    border-top: 1px solid rgb(28 25 21 / 0.15);
-}
-
-.dark .cta {
-    background: #f4efe4;
-    color: #161410;
-}
-</style>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PublicJobCard from '@/components/PublicJobCard.vue';
 import PublicLayout from '@/layouts/PublicLayout.vue';
 import { Link } from '@inertiajs/vue3';
 
@@ -23,30 +24,29 @@ defineProps<{
         remote: string;
     }>;
 }>();
-
-const typeLabel = (type: string) =>
-    type.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 </script>
 
 <template>
     <PublicLayout :title="organization.name" :description="`Jobs at ${organization.name}`">
-        <section class="px-6 py-12 sm:px-10">
-            <Link href="/organization" class="text-sm hover:underline">All organizations</Link>
+        <section class="pub-hero rounded-3xl px-6 py-10 sm:px-10">
+            <Link href="/organization" class="text-sm font-semibold text-white/80 hover:text-white">
+                All organizations
+            </Link>
             <h1 class="display mt-6 text-[clamp(2.2rem,4.5vw,3.6rem)] leading-[0.95] font-medium tracking-[-0.04em]">
                 {{ organization.name }}
             </h1>
-            <p class="mt-4 text-lg opacity-80">
+            <p class="mt-4 text-lg text-white/85">
                 {{ organization.location || 'Location open' }}
                 <template v-if="organization.industry"> · {{ organization.industry }}</template>
                 <template v-if="organization.size"> · {{ organization.size }}</template>
             </p>
-            <p v-if="organization.description" class="mt-6 max-w-2xl leading-8">
+            <p v-if="organization.description" class="mt-6 max-w-2xl leading-8 text-white/90">
                 {{ organization.description }}
             </p>
             <a
                 v-if="organization.website"
                 :href="organization.website"
-                class="mt-4 inline-block text-sm underline"
+                class="mt-4 inline-block text-sm font-semibold text-white underline"
                 target="_blank"
                 rel="noreferrer"
             >
@@ -54,56 +54,16 @@ const typeLabel = (type: string) =>
             </a>
         </section>
 
-        <section>
-            <div class="rule-t px-6 py-8 sm:px-10">
-                <h2 class="display text-3xl">Jobs</h2>
-            </div>
-            <article
+        <section class="mt-8 space-y-4">
+            <h2 class="display text-3xl">Jobs</h2>
+            <PublicJobCard
                 v-for="job in jobs"
                 :key="job.id"
-                class="rule-t grid gap-4 px-6 py-8 sm:px-10 lg:grid-cols-12 lg:items-center"
-            >
-                <div class="lg:col-span-8">
-                    <h3 class="display text-2xl leading-tight">
-                        <Link :href="`/jobs/${job.slug}`" class="hover:underline">{{ job.title }}</Link>
-                    </h3>
-                    <p class="mt-2 text-sm opacity-70">
-                        {{ job.location || 'Location open' }} · {{ typeLabel(job.type) }} ·
-                        {{ job.remote.replaceAll('_', ' ') }}
-                    </p>
-                </div>
-                <div class="lg:col-span-4 lg:text-right">
-                    <Link :href="`/jobs/${job.slug}`" class="cta inline-block">Apply</Link>
-                </div>
-            </article>
-            <p v-if="!jobs.length" class="rule-t px-6 py-12 text-lg leading-8 opacity-80 sm:px-10">
+                :job="{ ...job, company: organization }"
+            />
+            <p v-if="!jobs.length" class="pub-card p-8 text-lg text-muted-foreground">
                 This organization has no live jobs right now.
             </p>
         </section>
     </PublicLayout>
 </template>
-
-<style scoped>
-.display {
-    font-family: Fraunces, 'Times New Roman', serif;
-}
-
-.cta {
-    background: #1c1915;
-    color: #f4efe4;
-    padding: 0.75rem 1.5rem;
-}
-
-.cta:hover {
-    background: #3a342c;
-}
-
-.rule-t {
-    border-top: 1px solid rgb(28 25 21 / 0.15);
-}
-
-.dark .cta {
-    background: #f4efe4;
-    color: #161410;
-}
-</style>
