@@ -5,14 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { postJobs } from '@/routes';
+import { companySettings, postJobs } from '@/routes';
 import postJobsRoutes from '@/routes/post-jobs';
 import InputError from '@/components/InputError.vue';
 import PlanQuotaNotice from '@/components/PlanQuotaNotice.vue';
 import { type PlanQuota } from '@/types/plan-quota';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router, usePage } from '@inertiajs/vue3';
-import { Briefcase, Plus, MapPin, DollarSign, Edit, Trash2, Clock } from 'lucide-vue-next';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { Briefcase, Plus, MapPin, DollarSign, Edit, Trash2, Link2 } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 
 const props = defineProps<{
@@ -27,6 +27,9 @@ const props = defineProps<{
         salary_max?: number;
         salary_currency?: string;
         status: string;
+        public_url?: string;
+        slug?: string;
+        company_id?: number;
         company?: {
             name: string;
         };
@@ -68,7 +71,10 @@ const form = ref({
 
 const skillInput = ref('');
 
-const canCreate = computed(() => props.quota?.allowed !== false);
+const hasOrganization = computed(() => (props.companies?.length ?? 0) > 0);
+const canCreate = computed(() => props.quota?.allowed !== false && hasOrganization.value);
+const copiedJobId = ref<number | null>(null);
+const defaultCompanyId = () => props.companies?.[0]?.id?.toString() || '';
 
 const openDialog = (job?: any) => {
     if (!job && !canCreate.value) {
@@ -78,7 +84,7 @@ const openDialog = (job?: any) => {
     editingJob.value = job || null;
     if (job) {
         form.value = {
-            company_id: job.company_id || '',
+            company_id: job.company_id || defaultCompanyId(),
             title: job.title || '',
             description: job.description || '',
             requirements: job.requirements || '',
@@ -94,7 +100,7 @@ const openDialog = (job?: any) => {
         };
     } else {
         form.value = {
-            company_id: '',
+            company_id: defaultCompanyId(),
             title: '',
             description: '',
             requirements: '',
@@ -148,6 +154,20 @@ const submitForm = () => {
     }
 };
 
+const copyShareLink = async (job: { id: number; public_url?: string }) => {
+    if (!job.public_url) {
+        return;
+    }
+
+    await navigator.clipboard.writeText(job.public_url);
+    copiedJobId.value = job.id;
+    window.setTimeout(() => {
+        if (copiedJobId.value === job.id) {
+            copiedJobId.value = null;
+        }
+    }, 2000);
+};
+
 const deleteJob = (id: number) => {
     if (confirm('Are you sure you want to delete this job posting?')) {
         router.delete(postJobsRoutes.destroy(id).url);
@@ -177,7 +197,12 @@ const getStatusColor = (status: string) => {
                         Create and manage job postings for your organization
                     </p>
                     <PlanQuotaNotice class="mt-3" :quota="quota" />
-                    <InputError class="mt-2" :message="errors.plan" />
+                    <InputError class="mt-2" :message="errors.plan || errors.company" />
+                    <p v-if="!hasOrganization" class="text-muted-foreground mt-2 max-w-xl text-sm">
+                        Your account must belong to an organization before you can post. Ask an admin to
+                        attach you to a company, then confirm it on
+                        <Link :href="companySettings()" class="underline">Company settings</Link>.
+                    </p>
                 </div>
                 <Dialog :open="isDialogOpen" @update:open="(val) => { isDialogOpen = val; if (!val) editingJob = null; }">
                     <DialogTrigger as-child>
@@ -347,6 +372,15 @@ const getStatusColor = (status: string) => {
                                 <CardDescription v-if="job.company">{{ job.company.name }}</CardDescription>
                             </div>
                             <div class="flex gap-2">
+                                <Button
+                                    v-if="job.status === 'active' && job.public_url"
+                                    variant="ghost"
+                                    size="sm"
+                                    :title="copiedJobId === job.id ? 'Copied' : 'Copy apply link'"
+                                    @click="copyShareLink(job)"
+                                >
+                                    <Link2 class="h-4 w-4" />
+                                </Button>
                                 <Button variant="ghost" size="sm" @click="openDialog(job)">
                                     <Edit class="h-4 w-4" />
                                 </Button>
@@ -378,6 +412,14 @@ const getStatusColor = (status: string) => {
                                 {{ job.status.replace(/\b\w/g, l => l.toUpperCase()) }}
                             </span>
                         </div>
+                        <a
+                            v-if="job.status === 'active' && job.public_url"
+                            :href="job.public_url"
+                            target="_blank"
+                            class="block text-sm underline"
+                        >
+                            {{ copiedJobId === job.id ? 'Apply link copied' : 'Open public apply page' }}
+                        </a>
                     </CardContent>
                 </Card>
             </div>

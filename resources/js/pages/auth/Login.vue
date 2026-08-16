@@ -104,6 +104,8 @@ defineProps<{
             >
                 Don't have an account?
                 <TextLink :href="register()" :tabindex="5">Sign up</TextLink>
+                <span class="mx-1">·</span>
+                <TextLink href="/organization/register">Hiring? Register organization</TextLink>
             </div>
         </Form>
     </AuthBase>

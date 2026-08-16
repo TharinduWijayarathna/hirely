@@ -16,6 +16,7 @@ class DatabaseSeeder extends Seeder
             JobSeekerSeeder::class,
             HRProfessionalSeeder::class,
             AdminSeeder::class,
+            JobSeeder::class,
         ]);
     }
 }

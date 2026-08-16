@@ -103,6 +103,12 @@ import { Form, Head } from '@inertiajs/vue3';
                     >Log in</TextLink
                 >
             </div>
+            <p class="text-center text-sm text-muted-foreground">
+                Hiring for a company?
+                <TextLink href="/organization/register" class="underline underline-offset-4">
+                    Register your organization
+                </TextLink>
+            </p>
         </Form>
     </AuthBase>
 </template>

@@ -24,7 +24,10 @@ use App\Http\Controllers\JobSeeker\ProfileScoreController;
 use App\Http\Controllers\JobSeeker\SkillExpectationController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Payment\PaymentController;
+use App\Http\Controllers\PublicJobController;
+use App\Http\Controllers\PublicOrganizationController;
 use App\Http\Controllers\StripeWebhookController;
+use App\Models\Job;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
@@ -32,8 +35,32 @@ use Laravel\Fortify\Features;
 Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canRegister' => Features::enabled(Features::registration()),
+        'jobs' => Job::publiclyListed()
+            ->with('company:id,name,slug')
+            ->latest()
+            ->take(20)
+            ->get(['id', 'company_id', 'title', 'slug', 'location', 'type', 'remote']),
+        'jobCount' => Job::publiclyListed()->count(),
     ]);
 })->name('home');
+
+Route::get('jobs', [PublicJobController::class, 'index'])->name('jobs.index');
+Route::get('jobs/{job:slug}', [PublicJobController::class, 'show'])->name('jobs.show');
+Route::get('jobs/{job:slug}/apply', [PublicJobController::class, 'start'])
+    ->middleware(['auth', 'verified', 'role:job_seeker'])
+    ->name('jobs.apply');
+Route::post('jobs/{job:slug}/apply', [PublicJobController::class, 'apply'])
+    ->middleware(['auth', 'verified', 'role:job_seeker'])
+    ->name('jobs.apply.store');
+
+Route::get('organization', [PublicOrganizationController::class, 'index'])->name('organization.index');
+Route::get('organization/register', [PublicOrganizationController::class, 'create'])
+    ->middleware('guest')
+    ->name('organization.register');
+Route::post('organization/register', [PublicOrganizationController::class, 'store'])
+    ->middleware('guest')
+    ->name('organization.register.store');
+Route::get('organization/{company:slug}', [PublicOrganizationController::class, 'show'])->name('organization.show');
 
 Route::post('stripe/webhook', StripeWebhookController::class)->name('stripe.webhook');
 

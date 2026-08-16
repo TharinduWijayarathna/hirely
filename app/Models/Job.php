@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class Job extends Model
 {
@@ -17,6 +18,7 @@ class Job extends Model
         'user_id',
         'company_id',
         'title',
+        'slug',
         'description',
         'requirements',
         'location',
@@ -57,9 +59,63 @@ class Job extends Model
         return $this->hasMany(InterviewTemplate::class);
     }
 
-    public function interviews(): HasMany
+    protected $appends = [
+        'public_url',
+    ];
+
+    protected static function booted(): void
     {
-        return $this->hasMany(Interview::class);
+        static::creating(function (Job $job): void {
+            if (empty($job->slug)) {
+                $job->slug = static::uniqueSlug($job->title);
+            }
+        });
+    }
+
+    public function isPubliclyListed(): bool
+    {
+        if ($this->status !== 'active') {
+            return false;
+        }
+
+        return $this->expires_at === null || $this->expires_at->endOfDay()->isFuture();
+    }
+
+    public function scopePubliclyListed($query)
+    {
+        return $query->where('status', 'active')
+            ->where(function ($q) {
+                $q->whereNull('expires_at')
+                    ->orWhere('expires_at', '>=', now()->toDateString());
+            });
+    }
+
+    public function publicUrl(): string
+    {
+        if (! $this->slug) {
+            return url('/jobs');
+        }
+
+        return route('jobs.show', $this);
+    }
+
+    public function getPublicUrlAttribute(): string
+    {
+        return $this->publicUrl();
+    }
+
+    public static function uniqueSlug(string $title): string
+    {
+        $base = Str::slug($title) ?: 'role';
+        $slug = $base;
+        $i = 1;
+
+        while (static::where('slug', $slug)->exists()) {
+            $slug = $base.'-'.$i;
+            $i++;
+        }
+
+        return $slug;
     }
 
     public function scopeVisibleTo($query, User $user)

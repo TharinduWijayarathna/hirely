@@ -9,7 +9,7 @@ import { browseJobs } from '@/routes';
 import jobApplicationsRoutes from '@/routes/job-applications';
 import InputError from '@/components/InputError.vue';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { Briefcase, Search, MapPin, DollarSign, Clock, Building2, Send, Filter } from 'lucide-vue-next';
 import { ref, computed } from 'vue';
 
@@ -29,6 +29,8 @@ const props = defineProps<{
             company?: {
                 name: string;
             };
+            slug?: string;
+            public_url?: string;
         }>;
         links?: any;
         current_page?: number;
@@ -255,6 +257,13 @@ const getRemoteLabel = (remote: string) => {
                             <Send class="mr-2 h-4 w-4" />
                             {{ isApplied(job.id) ? 'Already Applied' : 'Apply Now' }}
                         </Button>
+                        <Link
+                            v-if="job.slug"
+                            :href="`/jobs/${job.slug}`"
+                            class="block text-center text-sm underline"
+                        >
+                            Open public posting
+                        </Link>
                     </CardContent>
                 </Card>
             </div>

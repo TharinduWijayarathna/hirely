@@ -34,7 +34,15 @@ class JobController extends Controller
 
     public function store(Request $request, PlanLimitService $limits)
     {
-        if ($message = $limits->denyMessage(Auth::user(), 'jobs')) {
+        $user = Auth::user();
+
+        if (! $user->company_id) {
+            return redirect()->route('post-jobs')->withErrors([
+                'company' => 'Your account must belong to an organization before you can post jobs.',
+            ]);
+        }
+
+        if ($message = $limits->denyMessage($user, 'jobs')) {
             return redirect()->route('post-jobs')->withErrors(['plan' => $message]);
         }
 
@@ -55,8 +63,8 @@ class JobController extends Controller
             'expires_at' => 'nullable|date|after:today',
         ]);
 
-        $validated['user_id'] = Auth::id();
-        $validated['company_id'] = Auth::user()->company_id ?: ($validated['company_id'] ?? null);
+        $validated['user_id'] = $user->id;
+        $validated['company_id'] = $user->company_id;
 
         Job::create($validated);
 

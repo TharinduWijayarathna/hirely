@@ -19,7 +19,8 @@ test('hr can create update and delete a job posting', function () {
 
     expect($job)->not->toBeNull()
         ->and($job->user_id)->toBe($hr->id)
-        ->and($job->company_id)->toBe($company->id);
+        ->and($job->company_id)->toBe($company->id)
+        ->and($job->slug)->not->toBeEmpty();
 
     $this->actingAs($hr)
         ->put(route('post-jobs.update', $job), jobListingPayload([

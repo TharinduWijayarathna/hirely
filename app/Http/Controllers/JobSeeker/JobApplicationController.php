@@ -5,7 +5,7 @@ namespace App\Http\Controllers\JobSeeker;
 use App\Http\Controllers\Controller;
 use App\Models\Job;
 use App\Models\JobApplication;
-use App\Services\RecruitmentNotifier;
+use App\Services\JobApplicationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -39,12 +39,7 @@ class JobApplicationController extends Controller
             ->pluck('job_id')
             ->toArray();
 
-        $query = Job::where('status', 'active')
-            ->with('company')
-            ->where(function ($q) {
-                $q->whereNull('expires_at')
-                    ->orWhere('expires_at', '>=', now());
-            });
+        $query = Job::publiclyListed()->with('company');
 
         // Filter by search
         if ($request->has('search') && $request->search) {
@@ -74,7 +69,7 @@ class JobApplicationController extends Controller
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, JobApplicationService $applications)
     {
         $validated = $request->validate([
             'job_id' => 'required|exists:job_postings,id',
@@ -82,24 +77,14 @@ class JobApplicationController extends Controller
             'resume_path' => 'nullable|string|max:255',
         ]);
 
-        // Check if already applied
-        $existingApplication = JobApplication::where('user_id', Auth::id())
-            ->where('job_id', $validated['job_id'])
-            ->first();
+        $job = Job::findOrFail($validated['job_id']);
+        $result = $applications->apply(Auth::user(), $job, $validated['cover_letter'] ?? null);
 
-        if ($existingApplication) {
-            return redirect()->back()->withErrors(['job_id' => 'You have already applied for this job.']);
+        if ($result['interview']) {
+            return redirect()
+                ->route('interviews.show', $result['interview'])
+                ->with('success', 'Application submitted. Your interview is ready.');
         }
-
-        $validated['user_id'] = Auth::id();
-        $validated['applied_at'] = now();
-        $validated['status'] = 'pending';
-        $validated['cv_document_id'] = Auth::user()->latestProcessedCv?->id;
-        $validated['resume_path'] = Auth::user()->latestProcessedCv?->path;
-
-        $application = JobApplication::create($validated);
-
-        app(RecruitmentNotifier::class)->applicationSubmitted($application->load(['job', 'user']));
 
         return redirect()->route('browse-jobs')->with('success', 'Application submitted successfully.');
     }

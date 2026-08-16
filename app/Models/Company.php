@@ -36,9 +36,23 @@ class Company extends Model
 
         static::creating(function ($company) {
             if (empty($company->slug)) {
-                $company->slug = Str::slug($company->name);
+                $company->slug = static::uniqueSlug($company->name);
             }
         });
+    }
+
+    public static function uniqueSlug(string $name): string
+    {
+        $base = Str::slug($name) ?: 'organization';
+        $slug = $base;
+        $i = 1;
+
+        while (static::where('slug', $slug)->exists()) {
+            $slug = $base.'-'.$i;
+            $i++;
+        }
+
+        return $slug;
     }
 
     public function jobs(): HasMany
