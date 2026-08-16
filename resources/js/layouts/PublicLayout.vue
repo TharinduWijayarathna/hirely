@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HirelyMark from '@/components/HirelyMark.vue';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import { dashboard, login, register } from '@/routes';
 import { Head, Link } from '@inertiajs/vue3';
@@ -22,7 +23,10 @@ defineProps<{
     <div class="public-site">
         <header class="sticky top-0 z-20 border-b border-border/80 bg-background/80 backdrop-blur-md">
             <div class="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-                <Link href="/" class="display text-2xl tracking-tight text-primary">Hirely</Link>
+                <Link href="/" class="flex items-center gap-2.5">
+                    <HirelyMark class="size-9 shrink-0" />
+                    <span class="hirely-display text-2xl tracking-tight text-foreground">Hirely</span>
+                </Link>
                 <nav class="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 text-sm font-medium">
                     <Link href="/jobs" class="text-foreground/80 hover:text-primary">Jobs</Link>
                     <Link href="/organization" class="text-foreground/80 hover:text-primary">Organizations</Link>
@@ -44,7 +48,10 @@ defineProps<{
 
         <footer class="border-t border-border">
             <div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-6 text-sm text-muted-foreground sm:px-6">
-                <span>Hirely</span>
+                <span class="flex items-center gap-2">
+                    <HirelyMark class="size-6" />
+                    Hirely
+                </span>
                 <Link href="/organization/register" class="font-medium text-primary hover:underline">
                     Hiring? Register your organization
                 </Link>

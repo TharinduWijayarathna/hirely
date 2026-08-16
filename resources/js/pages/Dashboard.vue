@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HirelyMark from '@/components/HirelyMark.vue';
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { dashboard, cvReview, interviews, jobApplications } from '@/routes';
@@ -98,7 +99,10 @@ const formatTime = (value?: string | null) => {
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-6 p-6">
             <section class="hirely-hero overflow-hidden rounded-3xl px-6 py-8 sm:px-8">
-                <p class="hirely-display text-sm tracking-wide text-white/80">Hirely</p>
+                <p class="flex items-center gap-2 hirely-display text-sm tracking-wide text-white/80">
+                    <HirelyMark class="size-6" />
+                    Hirely
+                </p>
                 <h1 class="hirely-display mt-2 text-3xl leading-tight font-medium sm:text-4xl">
                     Hello, {{ firstName }}
                 </h1>

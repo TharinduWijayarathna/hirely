@@ -92,9 +92,12 @@ const rightNavItems: NavItem[] = [];
                                 >Navigation Menu</SheetTitle
                             >
                             <SheetHeader class="flex justify-start text-left">
-                                <AppLogoIcon
-                                    class="size-6 fill-current text-primary"
-                                />
+                                <div class="flex items-center gap-2">
+                                    <AppLogoIcon
+                                        class="size-6 fill-current text-primary"
+                                    />
+                                    <span class="hirely-display text-lg font-semibold">Hirely</span>
+                                </div>
                             </SheetHeader>
                             <div
                                 class="flex h-full flex-1 flex-col justify-between space-y-4 py-6"

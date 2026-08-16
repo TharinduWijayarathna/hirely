@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import AppLogoIcon from '@/components/AppLogoIcon.vue';
+import HirelyMark from '@/components/HirelyMark.vue';
 import ThemeToggle from '@/components/ThemeToggle.vue';
 import { home } from '@/routes';
 import { Link, usePage } from '@inertiajs/vue3';
 
 const page = usePage();
-const name = page.props.name;
 const quote = page.props.quote;
 
 defineProps<{
@@ -24,10 +23,10 @@ defineProps<{
             <div class="absolute inset-0 bg-linear-to-br from-indigo-600 via-violet-600 to-orange-500" />
             <Link
                 :href="home()"
-                class="relative z-20 flex items-center text-lg font-medium"
+                class="relative z-20 flex items-center gap-2.5 text-lg font-medium"
             >
-                <AppLogoIcon class="mr-2 size-8 fill-current text-white" />
-                {{ name }}
+                <HirelyMark class="size-9" />
+                <span class="hirely-display text-2xl tracking-tight">Hirely</span>
             </Link>
             <div v-if="quote" class="relative z-20 mt-auto">
                 <blockquote class="space-y-2">

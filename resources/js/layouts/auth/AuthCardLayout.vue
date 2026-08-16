@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import AppLogoIcon from '@/components/AppLogoIcon.vue';
+import HirelyMark from '@/components/HirelyMark.vue';
 import {
     Card,
     CardContent,
@@ -23,13 +23,10 @@ defineProps<{
         <div class="flex w-full max-w-md flex-col gap-6">
             <Link
                 :href="home()"
-                class="flex items-center gap-2 self-center font-medium"
+                class="flex items-center gap-2.5 self-center font-medium"
             >
-                <div class="flex h-9 w-9 items-center justify-center">
-                    <AppLogoIcon
-                        class="size-9 fill-current text-primary"
-                    />
-                </div>
+                <HirelyMark class="size-9" />
+                <span class="hirely-display text-xl tracking-tight">Hirely</span>
             </Link>
 
             <div class="flex flex-col gap-6">
