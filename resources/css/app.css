@@ -90,79 +90,6 @@
 }
 
 :root {
-    --background: hsl(0 0% 100%);
-    --foreground: hsl(0 0% 3.9%);
-    --card: hsl(0 0% 100%);
-    --card-foreground: hsl(0 0% 3.9%);
-    --popover: hsl(0 0% 100%);
-    --popover-foreground: hsl(0 0% 3.9%);
-    --primary: hsl(0 0% 9%);
-    --primary-foreground: hsl(0 0% 98%);
-    --secondary: hsl(0 0% 92.1%);
-    --secondary-foreground: hsl(0 0% 9%);
-    --muted: hsl(0 0% 96.1%);
-    --muted-foreground: hsl(0 0% 45.1%);
-    --accent: hsl(0 0% 96.1%);
-    --accent-foreground: hsl(0 0% 9%);
-    --destructive: hsl(0 84.2% 60.2%);
-    --destructive-foreground: hsl(0 0% 98%);
-    --border: hsl(0 0% 92.8%);
-    --input: hsl(0 0% 89.8%);
-    --ring: hsl(0 0% 3.9%);
-    --chart-1: hsl(12 76% 61%);
-    --chart-2: hsl(173 58% 39%);
-    --chart-3: hsl(197 37% 24%);
-    --chart-4: hsl(43 74% 66%);
-    --chart-5: hsl(27 87% 67%);
-    --radius: 0.5rem;
-    --sidebar-background: hsl(0 0% 98%);
-    --sidebar-foreground: hsl(240 5.3% 26.1%);
-    --sidebar-primary: hsl(0 0% 10%);
-    --sidebar-primary-foreground: hsl(0 0% 98%);
-    --sidebar-accent: hsl(0 0% 94%);
-    --sidebar-accent-foreground: hsl(0 0% 30%);
-    --sidebar-border: hsl(0 0% 91%);
-    --sidebar-ring: hsl(217.2 91.2% 59.8%);
-    --sidebar: hsl(0 0% 98%);
-}
-
-.dark {
-    --background: hsl(0 0% 3.9%);
-    --foreground: hsl(0 0% 98%);
-    --card: hsl(0 0% 3.9%);
-    --card-foreground: hsl(0 0% 98%);
-    --popover: hsl(0 0% 3.9%);
-    --popover-foreground: hsl(0 0% 98%);
-    --primary: hsl(0 0% 98%);
-    --primary-foreground: hsl(0 0% 9%);
-    --secondary: hsl(0 0% 14.9%);
-    --secondary-foreground: hsl(0 0% 98%);
-    --muted: hsl(0 0% 16.08%);
-    --muted-foreground: hsl(0 0% 63.9%);
-    --accent: hsl(0 0% 14.9%);
-    --accent-foreground: hsl(0 0% 98%);
-    --destructive: hsl(0 84% 60%);
-    --destructive-foreground: hsl(0 0% 98%);
-    --border: hsl(0 0% 14.9%);
-    --input: hsl(0 0% 14.9%);
-    --ring: hsl(0 0% 83.1%);
-    --chart-1: hsl(220 70% 50%);
-    --chart-2: hsl(160 60% 45%);
-    --chart-3: hsl(30 80% 55%);
-    --chart-4: hsl(280 65% 60%);
-    --chart-5: hsl(340 75% 55%);
-    --sidebar-background: hsl(0 0% 7%);
-    --sidebar-foreground: hsl(0 0% 95.9%);
-    --sidebar-primary: hsl(360, 100%, 100%);
-    --sidebar-primary-foreground: hsl(0 0% 100%);
-    --sidebar-accent: hsl(0 0% 15.9%);
-    --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
-    --sidebar-border: hsl(0 0% 15.9%);
-    --sidebar-ring: hsl(217.2 91.2% 59.8%);
-    --sidebar: hsl(240 5.9% 10%);
-}
-
-.public-site {
     --background: hsl(226 100% 97%);
     --foreground: hsl(226 47% 11%);
     --card: hsl(0 0% 100%);
@@ -171,23 +98,40 @@
     --popover-foreground: hsl(226 47% 11%);
     --primary: hsl(239 84% 60%);
     --primary-foreground: hsl(0 0% 100%);
-    --secondary: hsl(168 76% 36%);
-    --secondary-foreground: hsl(0 0% 100%);
+    --secondary: hsl(168 55% 92%);
+    --secondary-foreground: hsl(168 76% 24%);
     --muted: hsl(226 70% 94%);
     --muted-foreground: hsl(226 20% 38%);
-    --accent: hsl(14 92% 58%);
-    --accent-foreground: hsl(0 0% 100%);
+    --accent: hsl(239 84% 95%);
+    --accent-foreground: hsl(239 84% 36%);
     --destructive: hsl(0 84.2% 60.2%);
     --destructive-foreground: hsl(0 0% 98%);
     --border: hsl(226 40% 86%);
     --input: hsl(226 40% 88%);
     --ring: hsl(239 84% 60%);
+    --cta: hsl(14 92% 58%);
+    --cta-foreground: hsl(0 0% 100%);
+    --chart-1: hsl(239 84% 60%);
+    --chart-2: hsl(168 76% 36%);
+    --chart-3: hsl(14 92% 58%);
+    --chart-4: hsl(262 83% 58%);
+    --chart-5: hsl(43 90% 55%);
+    --radius: 0.75rem;
+    --sidebar-background: hsl(226 80% 96%);
+    --sidebar-foreground: hsl(226 47% 16%);
+    --sidebar-primary: hsl(239 84% 60%);
+    --sidebar-primary-foreground: hsl(0 0% 100%);
+    --sidebar-accent: hsl(239 84% 92%);
+    --sidebar-accent-foreground: hsl(239 84% 32%);
+    --sidebar-border: hsl(226 40% 88%);
+    --sidebar-ring: hsl(239 84% 60%);
+    --sidebar: hsl(226 80% 96%);
     --hero-from: #4f46e5;
     --hero-via: #7c3aed;
     --hero-to: #f97316;
 }
 
-.dark .public-site {
+.dark {
     --background: hsl(226 42% 8%);
     --foreground: hsl(210 40% 96%);
     --card: hsl(226 36% 13%);
@@ -196,26 +140,36 @@
     --popover-foreground: hsl(210 40% 96%);
     --primary: hsl(239 90% 72%);
     --primary-foreground: hsl(226 47% 11%);
-    --secondary: hsl(168 70% 45%);
-    --secondary-foreground: hsl(226 47% 11%);
+    --secondary: hsl(168 30% 16%);
+    --secondary-foreground: hsl(168 70% 72%);
     --muted: hsl(226 32% 16%);
     --muted-foreground: hsl(215 20% 72%);
-    --accent: hsl(14 92% 62%);
-    --accent-foreground: hsl(0 0% 100%);
+    --accent: hsl(239 40% 18%);
+    --accent-foreground: hsl(239 90% 85%);
+    --destructive: hsl(0 84% 60%);
+    --destructive-foreground: hsl(0 0% 98%);
     --border: hsl(226 28% 22%);
     --input: hsl(226 28% 22%);
     --ring: hsl(239 90% 72%);
+    --cta: hsl(14 92% 62%);
+    --cta-foreground: hsl(0 0% 100%);
+    --chart-1: hsl(239 90% 72%);
+    --chart-2: hsl(168 70% 45%);
+    --chart-3: hsl(14 92% 62%);
+    --chart-4: hsl(262 80% 68%);
+    --chart-5: hsl(43 90% 58%);
+    --sidebar-background: hsl(226 40% 9%);
+    --sidebar-foreground: hsl(210 40% 94%);
+    --sidebar-primary: hsl(239 90% 72%);
+    --sidebar-primary-foreground: hsl(226 47% 11%);
+    --sidebar-accent: hsl(239 35% 16%);
+    --sidebar-accent-foreground: hsl(239 90% 85%);
+    --sidebar-border: hsl(226 28% 18%);
+    --sidebar-ring: hsl(239 90% 72%);
+    --sidebar: hsl(226 40% 9%);
     --hero-from: #3730a3;
     --hero-via: #6d28d9;
     --hero-to: #c2410c;
-}
-
-html:has(.public-site) {
-    background-color: hsl(226 100% 97%);
-}
-
-html.dark:has(.public-site) {
-    background-color: hsl(226 42% 8%);
 }
 
 @layer components {
@@ -239,8 +193,8 @@ html.dark:has(.public-site) {
         align-items: center;
         justify-content: center;
         border-radius: 999px;
-        background: var(--accent);
-        color: var(--accent-foreground);
+        background: var(--cta);
+        color: var(--cta-foreground);
         padding: 0.7rem 1.35rem;
         font-weight: 600;
         transition: filter 0.15s ease, transform 0.15s ease;

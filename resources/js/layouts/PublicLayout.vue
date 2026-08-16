@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import PublicThemeToggle from '@/components/PublicThemeToggle.vue';
+import ThemeToggle from '@/components/ThemeToggle.vue';
 import { dashboard, login, register } from '@/routes';
 import { Head, Link } from '@inertiajs/vue3';
 
@@ -26,7 +26,7 @@ defineProps<{
                 <nav class="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 text-sm font-medium">
                     <Link href="/jobs" class="text-foreground/80 hover:text-primary">Jobs</Link>
                     <Link href="/organization" class="text-foreground/80 hover:text-primary">Organizations</Link>
-                    <PublicThemeToggle />
+                    <ThemeToggle />
                     <Link v-if="$page.props.auth.user" :href="dashboard()" class="text-foreground/80 hover:text-primary">
                         Dashboard
                     </Link>

@@ -11,6 +11,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import ThemeToggle from '@/components/ThemeToggle.vue';
 import UserMenuContent from '@/components/UserMenuContent.vue';
 import { getInitials } from '@/composables/useInitials';
 import type { BreadcrumbItemType } from '@/types';
@@ -58,6 +59,7 @@ const markAllRead = () => {
             </template>
         </div>
         <div class="ml-auto flex items-center gap-2">
+            <ThemeToggle />
             <DropdownMenu>
                 <DropdownMenuTrigger as-child>
                     <Button variant="ghost" size="icon" class="relative h-9 w-9">
@@ -112,7 +114,7 @@ const markAllRead = () => {
                                 :alt="auth.user.name"
                             />
                             <AvatarFallback
-                                class="rounded-lg bg-neutral-200 font-semibold text-black dark:bg-neutral-700 dark:text-white"
+                                class="rounded-lg bg-primary/15 font-semibold text-primary"
                             >
                                 {{ getInitials(auth.user?.name) }}
                             </AvatarFallback>

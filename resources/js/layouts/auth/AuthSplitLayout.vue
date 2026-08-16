@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AppLogoIcon from '@/components/AppLogoIcon.vue';
+import ThemeToggle from '@/components/ThemeToggle.vue';
 import { home } from '@/routes';
 import { Link, usePage } from '@inertiajs/vue3';
 
@@ -18,9 +19,9 @@ defineProps<{
         class="relative grid h-dvh flex-col items-center justify-center px-8 sm:px-0 lg:max-w-none lg:grid-cols-2 lg:px-0"
     >
         <div
-            class="relative hidden h-full flex-col bg-muted p-10 text-white lg:flex dark:border-r"
+            class="relative hidden h-full flex-col p-10 text-white lg:flex dark:border-r"
         >
-            <div class="absolute inset-0 bg-zinc-900" />
+            <div class="absolute inset-0 bg-linear-to-br from-indigo-600 via-violet-600 to-orange-500" />
             <Link
                 :href="home()"
                 class="relative z-20 flex items-center text-lg font-medium"
@@ -31,13 +32,16 @@ defineProps<{
             <div v-if="quote" class="relative z-20 mt-auto">
                 <blockquote class="space-y-2">
                     <p class="text-lg">&ldquo;{{ quote.message }}&rdquo;</p>
-                    <footer class="text-sm text-neutral-300">
+                    <footer class="text-sm text-white/70">
                         {{ quote.author }}
                     </footer>
                 </blockquote>
             </div>
         </div>
         <div class="lg:p-8">
+            <div class="absolute right-4 top-4 z-20 lg:right-8 lg:top-8">
+                <ThemeToggle />
+            </div>
             <div
                 class="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]"
             >

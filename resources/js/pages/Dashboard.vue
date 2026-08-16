@@ -87,7 +87,7 @@ const formatTime = (value?: string | null) => {
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-6 p-6">
             <div>
-                <h1 class="text-3xl font-bold tracking-tight">Welcome Back</h1>
+                <h1 class="text-3xl font-bold tracking-tight text-primary">Welcome Back</h1>
                 <p class="text-muted-foreground mt-2">
                     <template v-if="userRole === 'job_seeker'">Your career preparation dashboard</template>
                     <template v-else-if="userRole === 'hr_professional'">Your HR management dashboard</template>
@@ -100,7 +100,7 @@ const formatTime = (value?: string | null) => {
                     <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">CV Reviews</CardTitle>
-                            <FileText class="text-muted-foreground h-4 w-4" />
+                            <FileText class="h-4 w-4 text-primary" />
                         </CardHeader>
                         <CardContent>
                             <div class="text-2xl font-bold">{{ display(stats?.cv_reviews) }}</div>
@@ -110,7 +110,7 @@ const formatTime = (value?: string | null) => {
                     <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">ATS Scores</CardTitle>
-                            <FileCheck class="text-muted-foreground h-4 w-4" />
+                            <FileCheck class="h-4 w-4 text-primary" />
                         </CardHeader>
                         <CardContent>
                             <div class="text-2xl font-bold">{{ display(stats?.ats_scores) }}</div>
@@ -120,7 +120,7 @@ const formatTime = (value?: string | null) => {
                     <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">Interviews</CardTitle>
-                            <Video class="text-muted-foreground h-4 w-4" />
+                            <Video class="h-4 w-4 text-primary" />
                         </CardHeader>
                         <CardContent>
                             <div class="text-2xl font-bold">{{ display(stats?.interviews_completed) }}</div>
@@ -133,7 +133,7 @@ const formatTime = (value?: string | null) => {
                     <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">Profile Score</CardTitle>
-                            <TrendingUp class="text-muted-foreground h-4 w-4" />
+                            <TrendingUp class="h-4 w-4 text-primary" />
                         </CardHeader>
                         <CardContent>
                             <div class="text-2xl font-bold">{{ display(stats?.profile_score) }}</div>
@@ -150,7 +150,7 @@ const formatTime = (value?: string | null) => {
                     <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">Job Postings</CardTitle>
-                            <Briefcase class="text-muted-foreground h-4 w-4" />
+                            <Briefcase class="h-4 w-4 text-primary" />
                         </CardHeader>
                         <CardContent>
                             <div class="text-2xl font-bold">{{ display(stats?.active_jobs) }}</div>
@@ -160,7 +160,7 @@ const formatTime = (value?: string | null) => {
                     <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">Candidates</CardTitle>
-                            <Users class="text-muted-foreground h-4 w-4" />
+                            <Users class="h-4 w-4 text-primary" />
                         </CardHeader>
                         <CardContent>
                             <div class="text-2xl font-bold">{{ display(stats?.total_applicants) }}</div>
@@ -170,7 +170,7 @@ const formatTime = (value?: string | null) => {
                     <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">Needs attention</CardTitle>
-                            <Clock class="text-muted-foreground h-4 w-4" />
+                            <Clock class="h-4 w-4 text-primary" />
                         </CardHeader>
                         <CardContent>
                             <div class="text-2xl font-bold">{{ display(stats?.under_review) }}</div>
@@ -182,7 +182,7 @@ const formatTime = (value?: string | null) => {
                     <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">Subscription</CardTitle>
-                            <CreditCard class="text-muted-foreground h-4 w-4" />
+                            <CreditCard class="h-4 w-4 text-primary" />
                         </CardHeader>
                         <CardContent>
                             <div class="text-2xl font-bold">{{ display(stats?.subscription_plan) }}</div>
@@ -215,7 +215,7 @@ const formatTime = (value?: string | null) => {
                     <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">Total Users</CardTitle>
-                            <Users class="text-muted-foreground h-4 w-4" />
+                            <Users class="h-4 w-4 text-primary" />
                         </CardHeader>
                         <CardContent>
                             <div class="text-2xl font-bold">{{ display(stats?.total_users) }}</div>
@@ -225,7 +225,7 @@ const formatTime = (value?: string | null) => {
                     <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">Companies</CardTitle>
-                            <Building2 class="text-muted-foreground h-4 w-4" />
+                            <Building2 class="h-4 w-4 text-primary" />
                         </CardHeader>
                         <CardContent>
                             <div class="text-2xl font-bold">{{ display(stats?.companies) }}</div>
@@ -235,7 +235,7 @@ const formatTime = (value?: string | null) => {
                     <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">Revenue</CardTitle>
-                            <CreditCard class="text-muted-foreground h-4 w-4" />
+                            <CreditCard class="h-4 w-4 text-primary" />
                         </CardHeader>
                         <CardContent>
                             <div class="text-2xl font-bold">${{ display(stats?.revenue) }}</div>
@@ -245,7 +245,7 @@ const formatTime = (value?: string | null) => {
                     <Card class="shadow-sm">
                         <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
                             <CardTitle class="text-sm font-medium">Growth</CardTitle>
-                            <TrendingUp class="text-muted-foreground h-4 w-4" />
+                            <TrendingUp class="h-4 w-4 text-primary" />
                         </CardHeader>
                         <CardContent>
                             <div class="text-2xl font-bold">{{ display(stats?.growth) }}%</div>

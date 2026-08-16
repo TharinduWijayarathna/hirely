@@ -56,7 +56,7 @@ const isCurrentRoute = computed(
 const activeItemStyles = computed(
     () => (url: NonNullable<InertiaLinkProps['href']>) =>
         isCurrentRoute.value(toUrl(url))
-            ? 'text-neutral-900 dark:bg-neutral-800 dark:text-neutral-100'
+            ? 'text-primary dark:bg-sidebar-accent dark:text-sidebar-accent-foreground'
             : '',
 );
 
@@ -93,7 +93,7 @@ const rightNavItems: NavItem[] = [];
                             >
                             <SheetHeader class="flex justify-start text-left">
                                 <AppLogoIcon
-                                    class="size-6 fill-current text-black dark:text-white"
+                                    class="size-6 fill-current text-primary"
                                 />
                             </SheetHeader>
                             <div
@@ -242,7 +242,7 @@ const rightNavItems: NavItem[] = [];
                                         :alt="auth.user.name"
                                     />
                                     <AvatarFallback
-                                        class="rounded-lg bg-neutral-200 font-semibold text-black dark:bg-neutral-700 dark:text-white"
+                                        class="rounded-lg bg-primary/15 font-semibold text-primary"
                                     >
                                         {{ getInitials(auth.user?.name) }}
                                     </AvatarFallback>
