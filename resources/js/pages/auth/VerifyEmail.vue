@@ -15,7 +15,7 @@ defineProps<{
 <template>
     <AuthLayout
         title="Verify email"
-        description="Please verify your email address by clicking on the link we just emailed to you."
+        description="Click the link we just emailed you. After that you'll set up two-factor authentication for login."
     >
         <Head title="Email verification" />
 

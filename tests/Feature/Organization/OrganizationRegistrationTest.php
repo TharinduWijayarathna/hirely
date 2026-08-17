@@ -3,6 +3,8 @@
 use App\Models\Company;
 use App\Models\Job;
 use App\Models\User;
+use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Support\Facades\Notification;
 
 test('organizations are listed on the public organization page', function () {
     $company = Company::factory()->create(['name' => 'Northwind']);
@@ -46,6 +48,8 @@ test('an organization page lists that companys live jobs', function () {
 });
 
 test('hr can register by creating an organization', function () {
+    Notification::fake();
+
     $this->get(route('organization.register'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->component('public/OrganizationRegister'));
@@ -59,7 +63,7 @@ test('hr can register by creating an organization', function () {
         'password' => 'password',
         'password_confirmation' => 'password',
         'role' => 'admin',
-    ])->assertRedirect(route('dashboard'));
+    ])->assertRedirect(route('verification.notice'));
 
     $this->assertAuthenticated();
 
@@ -68,9 +72,12 @@ test('hr can register by creating an organization', function () {
 
     expect($user)->not->toBeNull()
         ->and($user->role)->toBe('hr_professional')
+        ->and($user->hasVerifiedEmail())->toBeFalse()
         ->and($user->company_id)->toBe($company->id)
         ->and($company->slug)->toBe('brightline-studio')
         ->and($company->location)->toBe('Colombo');
+
+    Notification::assertSentTo($user, VerifyEmail::class);
 
     $this->get(route('organization.show', $company))
         ->assertOk()

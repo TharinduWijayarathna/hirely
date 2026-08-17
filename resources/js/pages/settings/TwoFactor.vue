@@ -7,20 +7,23 @@ import { Button } from '@/components/ui/button';
 import { useTwoFactorAuth } from '@/composables/useTwoFactorAuth';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
+import { dashboard } from '@/routes';
 import { disable, enable, show } from '@/routes/two-factor';
 import { BreadcrumbItem } from '@/types';
-import { Form, Head } from '@inertiajs/vue3';
+import { Form, Head, Link } from '@inertiajs/vue3';
 import { ShieldBan, ShieldCheck } from 'lucide-vue-next';
 import { onUnmounted, ref } from 'vue';
 
 interface Props {
     requiresConfirmation?: boolean;
     twoFactorEnabled?: boolean;
+    twoFactorRequired?: boolean;
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
     requiresConfirmation: false,
     twoFactorEnabled: false,
+    twoFactorRequired: false,
 });
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -45,8 +48,15 @@ onUnmounted(() => {
             <div class="space-y-6">
                 <HeadingSmall
                     title="Two-Factor Authentication"
-                    description="Manage your two-factor authentication settings"
+                    description="Hirely requires an authenticator app code every time you log in."
                 />
+
+                <div
+                    v-if="props.twoFactorRequired && !props.twoFactorEnabled"
+                    class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100"
+                >
+                    Finish setup to continue. Scan the QR code with an authenticator app, then enter the 6-digit code.
+                </div>
 
                 <div
                     v-if="!twoFactorEnabled"
@@ -55,10 +65,8 @@ onUnmounted(() => {
                     <Badge variant="destructive">Disabled</Badge>
 
                     <p class="text-muted-foreground">
-                        When you enable two-factor authentication, you will be
-                        prompted for a secure pin during login. This pin can be
-                        retrieved from a TOTP-supported application on your
-                        phone.
+                        After email verification, every login asks for a 6-digit
+                        code from a TOTP app such as Google Authenticator or 1Password.
                     </p>
 
                     <div>
@@ -96,7 +104,11 @@ onUnmounted(() => {
 
                     <TwoFactorRecoveryCodes />
 
-                    <div class="relative inline">
+                    <Button as-child>
+                        <Link :href="dashboard()">Continue to dashboard</Link>
+                    </Button>
+
+                    <div v-if="!props.twoFactorRequired" class="relative inline">
                         <Form v-bind="disable.form()" #default="{ processing }">
                             <Button
                                 variant="destructive"
@@ -108,6 +120,9 @@ onUnmounted(() => {
                             </Button>
                         </Form>
                     </div>
+                    <p v-else class="text-sm text-muted-foreground">
+                        Two-factor authentication is required for every Hirely account and cannot be turned off.
+                    </p>
                 </div>
 
                 <TwoFactorSetupModal

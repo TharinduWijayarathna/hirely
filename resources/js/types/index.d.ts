@@ -49,6 +49,7 @@ export interface User {
     email: string;
     avatar?: string;
     email_verified_at: string | null;
+    two_factor_enabled?: boolean;
     role?: UserRole;
     subscription_tier?: 'basic' | 'professional' | 'enterprise' | null;
     stats?: {

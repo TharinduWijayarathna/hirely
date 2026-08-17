@@ -55,6 +55,7 @@ class HandleInertiaRequests extends Middleware
                     'avatar' => $request->user()->avatar ?? null,
                     'role' => $request->user()->role ?? 'job_seeker',
                     'email_verified_at' => $request->user()->email_verified_at,
+                    'two_factor_enabled' => $request->user()->hasEnabledTwoFactorAuthentication(),
                     'created_at' => $request->user()->created_at,
                     'updated_at' => $request->user()->updated_at,
                 ] : null,

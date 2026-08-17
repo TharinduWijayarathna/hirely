@@ -27,6 +27,7 @@ const submit = () => {
                 </h1>
                 <p class="mt-4 leading-8 text-white/85">
                     Creates your company page at /organization/your-company and an HR account that can post jobs.
+                    We'll verify your email, then you'll enable two-factor authentication.
                 </p>
             </div>
 

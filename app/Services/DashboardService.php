@@ -11,6 +11,8 @@ use App\Models\JobApplication;
 use App\Models\MockInterviewSession;
 use App\Models\Payment;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class DashboardService
@@ -36,6 +38,11 @@ class DashboardService
         $applications = JobApplication::where('user_id', $user->id);
         $recruitmentInterviews = Interview::where('candidate_id', $user->id);
 
+        $statusCounts = (clone $applications)
+            ->selectRaw('status, COUNT(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status');
+
         $stats = [
             'cv_reviews' => CvDocument::where('user_id', $user->id)->where('status', 'processed')->count(),
             'ats_scores' => AtsAnalysis::where('user_id', $user->id)->count(),
@@ -51,6 +58,13 @@ class DashboardService
         return [
             'role' => User::ROLE_JOB_SEEKER,
             'stats' => $stats,
+            'charges' => $this->chargePayload(Payment::query()->where('user_id', $user->id)),
+            'charts' => [
+                'applications' => $this->monthlySeries((clone $applications), 'applied_at'),
+                'interviews' => $this->monthlySeries((clone $recruitmentInterviews), 'created_at'),
+                'charges' => $this->monthlySeries(Payment::query()->where('user_id', $user->id)->successful(), 'created_at', 'amount'),
+            ],
+            'breakdown' => $this->funnelPayload($statusCounts),
             'activity' => $this->seekerActivity($user),
         ];
     }
@@ -65,6 +79,7 @@ class DashboardService
         $interviews = Interview::whereIn('job_id', $jobIds);
         $subscription = $user->activeSubscription;
         $subscription?->load('paymentPlan');
+        $payerIds = $this->companyUserIds($user);
 
         $funnel = JobApplication::query()
             ->whereIn('job_id', $jobIds)
@@ -92,6 +107,12 @@ class DashboardService
             'role' => User::ROLE_HR_PROFESSIONAL,
             'stats' => $stats,
             'funnel' => $this->funnelPayload($funnel),
+            'charges' => $this->chargePayload(Payment::query()->whereIn('user_id', $payerIds)),
+            'charts' => [
+                'applications' => $this->monthlySeries((clone $applications), 'applied_at'),
+                'interviews' => $this->monthlySeries((clone $interviews), 'created_at'),
+                'charges' => $this->monthlySeries(Payment::query()->whereIn('user_id', $payerIds)->successful(), 'created_at', 'amount'),
+            ],
             'activity' => $this->hrActivity($jobIds),
         ];
     }
@@ -125,6 +146,17 @@ class DashboardService
         return [
             'role' => User::ROLE_ADMIN,
             'stats' => $stats,
+            'charges' => $this->chargePayload(Payment::query()),
+            'charts' => [
+                'users' => $this->monthlySeries(User::query(), 'created_at'),
+                'applications' => $this->monthlySeries(JobApplication::query(), 'applied_at'),
+                'charges' => $this->monthlySeries(Payment::successful(), 'created_at', 'amount'),
+            ],
+            'breakdown' => [
+                ['status' => 'job_seeker', 'count' => $stats['job_seekers']],
+                ['status' => 'hr_professional', 'count' => $stats['hr_professionals']],
+                ['status' => 'admin', 'count' => User::where('role', User::ROLE_ADMIN)->count()],
+            ],
             'activity' => $this->adminActivity(),
         ];
     }
@@ -254,5 +286,107 @@ class DashboardService
             ->take(8)
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function chargePayload(Builder $query): array
+    {
+        $successful = (clone $query)->successful();
+        $thisMonthQuery = (clone $successful)->where('created_at', '>=', now()->startOfMonth());
+        $lastMonthQuery = (clone $successful)->whereBetween('created_at', [
+            now()->subMonth()->startOfMonth(),
+            now()->subMonth()->endOfMonth(),
+        ]);
+
+        $thisMonth = (float) $thisMonthQuery->sum('amount');
+        $lastMonth = (float) $lastMonthQuery->sum('amount');
+        $total = (float) (clone $successful)->sum('amount');
+        $count = (clone $successful)->count();
+
+        $change = $lastMonth == 0.0
+            ? ($thisMonth > 0 ? 100 : 0)
+            : (int) round((($thisMonth - $lastMonth) / $lastMonth) * 100);
+
+        return [
+            'total' => $total,
+            'count' => $count,
+            'this_month' => $thisMonth,
+            'last_month' => $lastMonth,
+            'average' => $count > 0 ? round($total / $count, 2) : 0.0,
+            'change' => $change,
+            'recent' => $this->recentCharges($query),
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    protected function recentCharges(Builder $query, int $limit = 6): array
+    {
+        return (clone $query)
+            ->successful()
+            ->with(['user:id,name', 'paymentPlan:id,display_name,name'])
+            ->latest('paid_at')
+            ->latest()
+            ->take($limit)
+            ->get()
+            ->map(fn (Payment $payment) => [
+                'id' => $payment->id,
+                'amount' => (float) $payment->amount,
+                'currency' => strtoupper((string) $payment->currency),
+                'status' => $payment->status,
+                'type' => $payment->type,
+                'description' => $payment->description
+                    ?: ($payment->paymentPlan?->display_name ?? $payment->paymentPlan?->name ?? 'Charge'),
+                'user' => $payment->user?->name,
+                'at' => ($payment->paid_at ?? $payment->created_at)?->toIso8601String(),
+            ])
+            ->all();
+    }
+
+    /**
+     * @return array<int, array{label: string, key: string, value: float|int}>
+     */
+    protected function monthlySeries(Builder $query, string $column, ?string $sumColumn = null, int $months = 6): array
+    {
+        $start = now()->subMonths($months - 1)->startOfMonth();
+        $rows = (clone $query)
+            ->where($column, '>=', $start)
+            ->get([$column, ...($sumColumn ? [$sumColumn] : [])]);
+
+        return collect(range($months - 1, 0))->map(function (int $offset) use ($rows, $column, $sumColumn): array {
+            $month = now()->subMonths($offset);
+            $inMonth = $rows->filter(function ($row) use ($column, $month) {
+                $value = $row->{$column};
+
+                if (! $value instanceof Carbon) {
+                    $value = $value ? Carbon::parse($value) : null;
+                }
+
+                return $value?->isSameMonth($month) ?? false;
+            });
+
+            return [
+                'label' => $month->format('M'),
+                'key' => $month->format('Y-m'),
+                'value' => $sumColumn
+                    ? round((float) $inMonth->sum($sumColumn), 2)
+                    : $inMonth->count(),
+            ];
+        })->all();
+    }
+
+    /**
+     * @return Collection<int, int>
+     */
+    protected function companyUserIds(User $user): Collection
+    {
+        if ($user->company_id) {
+            return User::query()->where('company_id', $user->company_id)->pluck('id');
+        }
+
+        return collect([$user->id]);
     }
 }

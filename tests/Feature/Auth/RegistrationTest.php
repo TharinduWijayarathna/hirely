@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Support\Facades\Notification;
 
 test('registration screen can be rendered', function () {
     $response = $this->get(route('register'));
@@ -9,6 +11,8 @@ test('registration screen can be rendered', function () {
 });
 
 test('new users can register', function () {
+    Notification::fake();
+
     $response = $this->post(route('register.store'), [
         'name' => 'Test User',
         'email' => 'test@example.com',
@@ -17,8 +21,14 @@ test('new users can register', function () {
     ]);
 
     $this->assertAuthenticated();
-    $response->assertRedirect(route('dashboard', absolute: false));
-    expect(User::where('email', 'test@example.com')->first()->role)->toBe('job_seeker');
+    $response->assertRedirect(route('verification.notice'));
+
+    $user = User::where('email', 'test@example.com')->first();
+    expect($user->role)->toBe('job_seeker')
+        ->and($user->hasVerifiedEmail())->toBeFalse()
+        ->and($user->hasEnabledTwoFactorAuthentication())->toBeFalse();
+
+    Notification::assertSentTo($user, VerifyEmail::class);
 });
 
 test('public registration cannot escalate to admin', function () {

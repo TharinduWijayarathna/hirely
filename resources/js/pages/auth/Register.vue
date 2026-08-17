@@ -14,7 +14,7 @@ import { Form, Head } from '@inertiajs/vue3';
 <template>
     <AuthBase
         title="Create an account"
-        description="Enter your details below to create your account"
+        description="We'll email a verification link, then you'll set up two-factor authentication before you can use Hirely."
     >
         <Head title="Register" />
 
@@ -92,6 +92,9 @@ import { Form, Head } from '@inertiajs/vue3';
                     <Spinner v-if="processing" />
                     Create account
                 </Button>
+                <p class="text-center text-xs text-muted-foreground">
+                    After you register, confirm your email, then enable an authenticator app for login.
+                </p>
             </div>
 
             <div class="text-center text-sm text-muted-foreground">

@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Actions\Fortify\PasswordValidationRules;
 use App\Models\Company;
 use App\Models\User;
+use App\Support\PostAuthRedirect;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -84,7 +86,10 @@ class PublicOrganizationController extends Controller
         });
 
         Auth::login($user);
+        event(new Registered($user));
 
-        return redirect()->route('dashboard');
+        $request->session()->regenerate();
+
+        return PostAuthRedirect::to($request, $user, confirmPassword: true);
     }
 }

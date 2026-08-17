@@ -22,7 +22,7 @@ defineProps<{
 <template>
     <AuthBase
         title="Log in to your account"
-        description="Enter your email and password below to log in"
+        description="Enter your email and password. If two-factor is enabled, you'll enter an authenticator code next."
     >
         <Head title="Log in" />
 
