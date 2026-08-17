@@ -42,10 +42,7 @@ class CandidateController extends Controller
             $skill = $request->string('skills')->trim()->value();
             $query->whereHas('cvDocuments', function ($documents) use ($skill) {
                 $documents->where('status', 'processed')
-                    ->where(function ($match) use ($skill) {
-                        $match->where('parsed_text', 'like', '%'.$skill.'%')
-                            ->orWhere('extraction', 'like', '%'.$skill.'%');
-                    });
+                    ->where('extraction', 'like', '%'.$skill.'%');
             });
         }
 

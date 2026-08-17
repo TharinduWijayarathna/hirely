@@ -504,14 +504,25 @@ Keep your responses natural and conversational.";
         ];
     }
 
-    protected function makeRequest(string $systemPrompt, string $userPrompt, int $maxTokens = 2000, bool $json = false): ?array
+    protected function makeRequest(string $systemPrompt, string $userPrompt, int $maxTokens = 2000, bool $json = false, ?array $inlineFile = null): ?array
     {
+        $parts = [['text' => $userPrompt]];
+
+        if ($inlineFile !== null && ($inlineFile['contents'] ?? '') !== '') {
+            $parts[] = [
+                'inlineData' => [
+                    'mimeType' => $inlineFile['mime_type'] ?? 'application/pdf',
+                    'data' => base64_encode($inlineFile['contents']),
+                ],
+            ];
+        }
+
         return $this->generateContent(
             $systemPrompt,
             [
                 [
                     'role' => 'user',
-                    'parts' => [['text' => $userPrompt]],
+                    'parts' => $parts,
                 ],
             ],
             $maxTokens,
@@ -705,69 +716,91 @@ Keep your responses natural and conversational.";
     }
 
     /**
+     * Review a CV by sending the original file to Gemini.
+     *
      * @return array<string, mixed>
      */
-    public function analyzeCurriculumVitae(string $text): array
+    public function analyzeCurriculumVitae(string $contents, string $mimeType): array
     {
-        $text = mb_substr($text, 0, 12000);
+        $systemPrompt = 'You are an expert recruiter. Read the attached resume file directly. Return ONLY valid JSON with this exact shape: {"extraction":{"full_name":"","email":"","phone":"","location":"","summary":"","education":[{"institution":"","degree":"","field":"","start_date":"","end_date":""}],"skills":[""],"experience":[{"company":"","title":"","start_date":"","end_date":"","description":""}],"qualifications":[""],"projects":[{"name":"","description":"","technologies":[""]}],"certifications":[{"name":"","issuer":"","date":""}],"technologies":[""],"relevant_experience":[""],"experience_years":0,"experience_level":"entry|mid|senior"},"review":{"score":0,"summary":"","strengths":[""],"improvements":[""]}}. experience_level must be one of entry, mid, senior. score is 0-100. No markdown.';
 
-        $systemPrompt = 'You are an expert recruiter and CV parser. Extract structured data and a quality review from the resume. Return ONLY valid JSON with this exact shape: {"extraction":{"full_name":"","email":"","phone":"","location":"","summary":"","education":[{"institution":"","degree":"","field":"","start_date":"","end_date":""}],"skills":[""],"experience":[{"company":"","title":"","start_date":"","end_date":"","description":""}],"qualifications":[""],"projects":[{"name":"","description":"","technologies":[""]}],"certifications":[{"name":"","issuer":"","date":""}],"technologies":[""],"relevant_experience":[""],"experience_years":0,"experience_level":"entry|mid|senior"},"review":{"score":0,"summary":"","strengths":[""],"improvements":[""]}}. experience_level must be one of entry, mid, senior. score is 0-100. No markdown.';
+        $response = $this->makeRequest(
+            $systemPrompt,
+            'Parse the attached resume file and return the JSON review.',
+            1500,
+            true,
+            [
+                'contents' => $contents,
+                'mime_type' => $this->geminiDocumentMime($mimeType),
+            ],
+        );
+        $content = $this->responseText($response);
 
-        try {
-            $response = $this->makeRequest($systemPrompt, "Parse this resume:\n\n{$text}", 1500, true);
-            $content = $this->responseText($response);
+        if ($content !== null) {
+            $decoded = json_decode($this->stripMarkdown($content), true);
 
-            if ($content !== null) {
-                $decoded = json_decode($this->stripMarkdown($content), true);
-
-                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded) && isset($decoded['extraction'])) {
-                    return $this->normalizeCvAnalysis($decoded);
-                }
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded) && isset($decoded['extraction'])) {
+                return $this->normalizeCvAnalysis($decoded);
             }
-        } catch (\Exception $e) {
-            Log::error('CV analysis error: '.$e->getMessage());
         }
 
-        return $this->heuristicCvAnalysis($text);
+        throw new \RuntimeException('Gemini could not review this CV. Try a PDF and check GEMINI_API_KEY.');
     }
 
     /**
+     * @param  array<string, mixed>|null  $extraction
      * @return array{score: int, analysis: array<string, mixed>}
      */
-    public function scoreAtsCompatibility(string $cvText, string $jobDescription, ?array $extraction = null): array
+    public function scoreAtsCompatibility(string $jobDescription, ?array $extraction = null, ?string $fileContents = null, ?string $mimeType = null): array
     {
-        $cvText = mb_substr($cvText, 0, 8000);
         $jobDescription = mb_substr($jobDescription, 0, 6000);
         $skills = implode(', ', $extraction['skills'] ?? []);
 
-        $systemPrompt = 'You are an ATS scoring engine. Compare the resume to the job description. Return ONLY valid JSON: {"score":0,"summary":"","matched_skills":[""],"missing_skills":[""],"recommendations":[""]}. score is 0-100. No markdown.';
+        $systemPrompt = 'You are an ATS scoring engine. Read the attached resume if provided. Return ONLY valid JSON: {"score":0,"summary":"","matched_skills":[""],"missing_skills":[""],"recommendations":[""]}. score is 0-100. No markdown.';
+        $userPrompt = "Job description:\n{$jobDescription}\n\nKnown skills: {$skills}\n\nScore the attached resume against the job.";
 
-        $userPrompt = "Job description:\n{$jobDescription}\n\nKnown skills: {$skills}\n\nResume:\n{$cvText}";
-
-        try {
-            $response = $this->makeRequest($systemPrompt, $userPrompt, 1024, true);
-            $content = $this->responseText($response);
-
-            if ($content !== null) {
-                $decoded = json_decode($this->stripMarkdown($content), true);
-
-                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded) && isset($decoded['score'])) {
-                    return [
-                        'score' => max(0, min(100, (int) $decoded['score'])),
-                        'analysis' => [
-                            'summary' => $decoded['summary'] ?? '',
-                            'matched_skills' => array_values($decoded['matched_skills'] ?? []),
-                            'missing_skills' => array_values($decoded['missing_skills'] ?? []),
-                            'recommendations' => array_values($decoded['recommendations'] ?? []),
-                        ],
-                    ];
-                }
-            }
-        } catch (\Exception $e) {
-            Log::error('ATS scoring error: '.$e->getMessage());
+        $inlineFile = null;
+        if ($fileContents) {
+            $inlineFile = [
+                'contents' => $fileContents,
+                'mime_type' => $this->geminiDocumentMime($mimeType ?: 'application/pdf'),
+            ];
         }
 
-        return $this->heuristicAtsScore($cvText, $jobDescription, $extraction);
+        $response = $this->makeRequest($systemPrompt, $userPrompt, 1024, true, $inlineFile);
+        $content = $this->responseText($response);
+
+        if ($content !== null) {
+            $decoded = json_decode($this->stripMarkdown($content), true);
+
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded) && isset($decoded['score'])) {
+                return [
+                    'score' => max(0, min(100, (int) $decoded['score'])),
+                    'analysis' => [
+                        'summary' => $decoded['summary'] ?? '',
+                        'matched_skills' => array_values($decoded['matched_skills'] ?? []),
+                        'missing_skills' => array_values($decoded['missing_skills'] ?? []),
+                        'recommendations' => array_values($decoded['recommendations'] ?? []),
+                    ],
+                ];
+            }
+        }
+
+        return $this->heuristicAtsScore($jobDescription, $extraction);
+    }
+
+    protected function geminiDocumentMime(?string $mimeType): string
+    {
+        $mimeType = strtolower((string) $mimeType);
+
+        return match (true) {
+            str_contains($mimeType, 'pdf') => 'application/pdf',
+            str_contains($mimeType, 'jpeg'), str_contains($mimeType, 'jpg') => 'image/jpeg',
+            str_contains($mimeType, 'png') => 'image/png',
+            str_contains($mimeType, 'webp') => 'image/webp',
+            str_contains($mimeType, 'wordprocessingml'), str_contains($mimeType, 'msword') => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            default => 'application/pdf',
+        };
     }
 
     /**
@@ -802,64 +835,21 @@ Keep your responses natural and conversational.";
     }
 
     /**
-     * @return array<string, mixed>
-     */
-    protected function heuristicCvAnalysis(string $text): array
-    {
-        preg_match('/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i', $text, $email);
-        preg_match('/(\d+)\+?\s+years?/i', $text, $years);
-
-        $catalog = ['php', 'laravel', 'vue', 'javascript', 'typescript', 'python', 'java', 'react', 'node', 'aws', 'sql', 'mysql', 'postgresql', 'docker', 'kubernetes', 'git', 'html', 'css', 'redis', 'linux', 'rest', 'graphql', 'tailwind', 'inertia'];
-        $haystack = strtolower($text);
-        $skills = array_values(array_filter($catalog, fn (string $skill) => str_contains($haystack, $skill)));
-        $experienceYears = isset($years[1]) ? (int) $years[1] : 0;
-
-        return [
-            'extraction' => [
-                'full_name' => null,
-                'email' => $email[0] ?? null,
-                'phone' => null,
-                'location' => null,
-                'summary' => mb_substr($text, 0, 280),
-                'education' => [],
-                'skills' => $skills,
-                'experience' => [],
-                'qualifications' => [],
-                'projects' => [],
-                'certifications' => [],
-                'technologies' => $skills,
-                'relevant_experience' => [],
-                'experience_years' => $experienceYears,
-                'experience_level' => $this->levelFromYears($experienceYears),
-            ],
-            'review' => [
-                'score' => $skills === [] ? 55 : min(80, 50 + count($skills) * 4),
-                'summary' => 'Automatic review generated without the AI provider. Upload again after configuring Gemini for a richer analysis.',
-                'strengths' => $skills === [] ? [] : ['Detected technical skills: '.implode(', ', $skills)],
-                'improvements' => ['Add measurable achievements and a concise professional summary.'],
-            ],
-        ];
-    }
-
-    /**
      * @param  array<string, mixed>|null  $extraction
      * @return array{score: int, analysis: array<string, mixed>}
      */
-    protected function heuristicAtsScore(string $cvText, string $jobDescription, ?array $extraction): array
+    protected function heuristicAtsScore(string $jobDescription, ?array $extraction): array
     {
         $cvSkills = array_map('strtolower', $extraction['skills'] ?? []);
         $tokens = preg_split('/[^a-z0-9+#]+/i', strtolower($jobDescription)) ?: [];
         $jobTokens = array_values(array_unique(array_filter($tokens, fn ($token) => strlen($token) > 2)));
         $matched = array_values(array_intersect($cvSkills, $jobTokens));
-        $haystack = strtolower($cvText);
-        $keywordHits = array_values(array_filter($jobTokens, fn ($token) => str_contains($haystack, $token)));
-        $matched = array_values(array_unique([...$matched, ...array_slice($keywordHits, 0, 12)]));
         $score = $jobTokens === [] ? 50 : (int) min(95, round((count($matched) / max(8, min(20, count($jobTokens)))) * 100));
 
         return [
             'score' => $score,
             'analysis' => [
-                'summary' => 'Compatibility estimated from keyword overlap. Configure Gemini for a deeper ATS review.',
+                'summary' => 'Compatibility estimated from extracted skills. Configure Gemini for a deeper ATS review.',
                 'matched_skills' => $matched,
                 'missing_skills' => [],
                 'recommendations' => ['Mirror important keywords from the job description in your CV.'],

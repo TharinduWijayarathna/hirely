@@ -84,7 +84,7 @@ Detailed mapping of the 23 product capabilities to the current codebase. Status 
 
 ## 5. CV Upload & CV Analysis — Partial
 
-Job seekers upload PDF/DOCX files to private storage. `CvTextExtractor` parses text; `AIService::analyzeCurriculumVitae` extracts structured fields and a quality review. ATS scoring compares the latest CV to a pasted job description or a live posting. Free seekers may store one CV; ATS scoring is Premium.
+Job seekers upload PDF/DOCX files to private storage. Gemini reads the original file directly and returns structured fields plus a quality review. ATS scoring compares that CV to a pasted job description or a live posting. Free seekers may store one CV; ATS scoring is Premium.
 
 HR sees the extraction on Review Candidates and can filter by skills/experience. Applications attach `cv_document_id` from the latest processed CV.
 

@@ -57,22 +57,17 @@ test('interview evaluation uses the heuristic fallback when the gemini request f
         ->and($evaluation['answers'][0]['evidence'])->toContain('Representational');
 });
 
-test('cv analysis falls back to heuristics when gemini is unset', function () {
+test('cv analysis fails without gemini instead of parsing the file locally', function () {
     config(['services.gemini.api_key' => '']);
 
-    $analysis = (new AIService)->analyzeCurriculumVitae(
-        'Alex Rivera. PHP Laravel Vue developer with 4 years experience. alex@example.com'
-    );
-
-    expect($analysis['extraction']['skills'] ?? [])->toContain('php')
-        ->and($analysis['review']['score'] ?? null)->toBeInt();
+    expect(fn () => (new AIService)->analyzeCurriculumVitae('%PDF-1.4 fake', 'application/pdf'))
+        ->toThrow(\RuntimeException::class);
 });
 
 test('ats scoring falls back to heuristics when gemini is unset', function () {
     config(['services.gemini.api_key' => '']);
 
     $result = (new AIService)->scoreAtsCompatibility(
-        'PHP Laravel Vue Docker developer',
         'Looking for PHP Laravel Vue experience',
         ['skills' => ['PHP', 'Laravel', 'Vue']],
     );

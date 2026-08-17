@@ -5,36 +5,48 @@ use App\Models\CvDocument;
 use App\Models\Job;
 use App\Models\JobApplication;
 use App\Models\User;
-use App\Services\CvTextExtractor;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     config(['services.gemini.api_key' => '']);
 });
 
-function makeDocx(string $text): string
-{
-    $path = tempnam(sys_get_temp_dir(), 'cv').'.docx';
-    $zip = new ZipArchive;
-    $zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
-    $zip->addFromString('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
-    $zip->addFromString('_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
-    $zip->addFromString('word/document.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>'.htmlspecialchars($text).'</w:t></w:r></w:p></w:body></w:document>');
-    $zip->close();
-
-    return $path;
-}
-
 test('job seekers can upload a cv and see extracted skills', function () {
     Storage::fake('local');
     Storage::fake((string) config('filesystems.cv', 'local'));
+    config(['services.gemini.api_key' => 'gemini-test']);
+    Http::fake([
+        'generativelanguage.googleapis.com/*' => Http::response([
+            'candidates' => [[
+                'content' => [
+                    'parts' => [[
+                        'text' => json_encode([
+                            'extraction' => [
+                                'full_name' => 'Alex Rivera',
+                                'email' => 'alex@example.com',
+                                'skills' => ['php', 'laravel', 'vue'],
+                                'experience_years' => 4,
+                                'experience_level' => 'mid',
+                            ],
+                            'review' => [
+                                'score' => 78,
+                                'summary' => 'Strong PHP Laravel profile.',
+                                'strengths' => ['Relevant stack'],
+                                'improvements' => ['Add metrics'],
+                            ],
+                        ]),
+                    ]],
+                ],
+            ]],
+        ]),
+    ]);
     $user = User::factory()->jobSeeker()->create();
-    $docx = makeDocx('Alex Rivera. PHP Laravel Vue developer with 4 years experience. alex@example.com');
 
     $this->actingAs($user)
         ->post(route('cv-review.store'), [
-            'cv' => new UploadedFile($docx, 'resume.docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', null, true),
+            'cv' => UploadedFile::fake()->createWithContent('resume.pdf', "%PDF-1.4\nHirely test resume"),
         ])
         ->assertRedirect(route('cv-review'));
 
@@ -42,8 +54,11 @@ test('job seekers can upload a cv and see extracted skills', function () {
 
     expect($document)->not->toBeNull()
         ->and($document->status)->toBe('processed')
-        ->and($document->parsed_text)->toContain('Alex Rivera')
-        ->and($document->extraction['skills'] ?? [])->toContain('php');
+        ->and($document->extraction['skills'] ?? [])->toContain('php')
+        ->and($document->review['summary'] ?? '')->toContain('PHP Laravel');
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), 'generateContent')
+        && str_contains($request->body(), 'inlineData'));
 });
 
 test('hr can filter candidates by extracted skills', function () {
@@ -58,7 +73,6 @@ test('hr can filter candidates by extracted skills', function () {
             'skills' => ['Python'],
             'experience_level' => 'entry',
         ],
-        'parsed_text' => 'Python developer',
     ]);
 
     $this->actingAs($hr)
@@ -131,13 +145,4 @@ test('ats scoring stores a compatibility result', function () {
 
     expect($user->atsAnalyses()->count())->toBe(1)
         ->and($user->atsAnalyses()->first()->score)->toBeInt();
-});
-
-test('cv text extractor reads docx content', function () {
-    $path = makeDocx('Extracted resume text about PostgreSQL');
-
-    expect(app(CvTextExtractor::class)->extract($path, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'))
-        ->toContain('PostgreSQL');
-
-    @unlink($path);
 });

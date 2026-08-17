@@ -13,15 +13,13 @@ use Throwable;
 
 class CvAnalysisService
 {
-    public function __construct(
-        protected CvTextExtractor $extractor,
-        protected AIService $ai,
-    ) {}
+    public function __construct(protected AIService $ai) {}
 
     public function storeAndAnalyze(User $user, UploadedFile $file): CvDocument
     {
         $disk = (string) config('filesystems.cv', 'local');
-        $localPath = $file->getRealPath() ?: $file->getPathname();
+        $source = $file->getRealPath() ?: $file->getPathname();
+        $contents = is_string($source) && is_readable($source) ? file_get_contents($source) : false;
         $path = $file->store("cvs/{$user->id}", $disk);
 
         $document = CvDocument::create([
@@ -35,11 +33,14 @@ class CvAnalysisService
         ]);
 
         try {
-            $text = $this->extractor->extract($localPath, $document->mime_type);
-            $analysis = $this->ai->analyzeCurriculumVitae($text);
+            if ($contents === false || $contents === '') {
+                throw new \RuntimeException('Could not read the uploaded CV.');
+            }
+
+            $analysis = $this->ai->analyzeCurriculumVitae($contents, (string) $document->mime_type);
 
             $document->update([
-                'parsed_text' => $text,
+                'parsed_text' => $analysis['review']['summary'] ?? null,
                 'extraction' => $analysis['extraction'],
                 'review' => $analysis['review'],
                 'review_score' => $analysis['review']['score'] ?? null,
@@ -62,7 +63,7 @@ class CvAnalysisService
     {
         $cv = $user->latestProcessedCv;
 
-        if (! $cv || ! $cv->parsed_text) {
+        if (! $cv) {
             throw new \RuntimeException('Upload and process a CV before running ATS scoring.');
         }
 
@@ -71,7 +72,17 @@ class CvAnalysisService
             $jobDescription = trim($job->title."\n".$job->description."\n".($job->requirements ?? ''));
         }
 
-        $result = $this->ai->scoreAtsCompatibility($cv->parsed_text, $jobDescription, $cv->extraction);
+        $fileContents = null;
+        if ($cv->path && Storage::disk($cv->disk)->exists($cv->path)) {
+            $fileContents = Storage::disk($cv->disk)->get($cv->path);
+        }
+
+        $result = $this->ai->scoreAtsCompatibility(
+            $jobDescription,
+            $cv->extraction,
+            $fileContents,
+            $cv->mime_type,
+        );
 
         return AtsAnalysis::create([
             'user_id' => $user->id,
