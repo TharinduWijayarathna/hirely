@@ -561,8 +561,6 @@ Keep your responses natural and conversational.";
         }
 
         try {
-            @set_time_limit(120);
-
             $response = Http::timeout(15)
                 ->connectTimeout(5)
                 ->acceptJson()
