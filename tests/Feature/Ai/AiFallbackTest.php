@@ -61,7 +61,17 @@ test('cv analysis fails without gemini instead of parsing the file locally', fun
     config(['services.gemini.api_key' => '']);
 
     expect(fn () => (new AIService)->analyzeCurriculumVitae('%PDF-1.4 fake', 'application/pdf'))
-        ->toThrow(\RuntimeException::class);
+        ->toThrow(\RuntimeException::class, 'GEMINI_API_KEY is not set');
+});
+
+test('cv analysis reports a timeout instead of blaming the api key', function () {
+    config(['services.gemini.api_key' => 'gemini-test']);
+    Http::fake(function () {
+        throw new \Illuminate\Http\Client\ConnectionException('cURL error 28: Operation timed out after 15002 milliseconds');
+    });
+
+    expect(fn () => (new AIService)->analyzeCurriculumVitae('%PDF-1.4 fake', 'application/pdf'))
+        ->toThrow(\RuntimeException::class, 'timed out');
 });
 
 test('ats scoring falls back to heuristics when gemini is unset', function () {

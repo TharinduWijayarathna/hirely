@@ -13,11 +13,19 @@ class AIService
 
     protected string $baseUrl;
 
+    protected int $timeout;
+
+    protected int $documentTimeout;
+
+    protected ?string $lastFailure = null;
+
     public function __construct()
     {
         $this->apiKey = (string) (config('services.gemini.api_key') ?? '');
         $this->model = (string) config('services.gemini.model', 'gemini-2.5-flash');
         $this->baseUrl = rtrim((string) config('services.gemini.base_url', 'https://generativelanguage.googleapis.com/v1beta'), '/');
+        $this->timeout = max(5, (int) config('services.gemini.timeout', 20));
+        $this->documentTimeout = max($this->timeout, (int) config('services.gemini.document_timeout', 90));
     }
 
     /**
@@ -506,7 +514,7 @@ Keep your responses natural and conversational.";
 
     protected function makeRequest(string $systemPrompt, string $userPrompt, int $maxTokens = 2000, bool $json = false, ?array $inlineFile = null): ?array
     {
-        $parts = [['text' => $userPrompt]];
+        $parts = [];
 
         if ($inlineFile !== null && ($inlineFile['contents'] ?? '') !== '') {
             $parts[] = [
@@ -516,6 +524,8 @@ Keep your responses natural and conversational.";
                 ],
             ];
         }
+
+        $parts[] = ['text' => $userPrompt];
 
         return $this->generateContent(
             $systemPrompt,
@@ -528,11 +538,12 @@ Keep your responses natural and conversational.";
             $maxTokens,
             0.7,
             $json,
+            $inlineFile !== null ? $this->documentTimeout : $this->timeout,
         );
     }
 
     /**
-     * @param  array<int, array{role: string, parts: array<int, array{text: string}>}>  $contents
+     * @param  array<int, array{role: string, parts: array<int, array<string, mixed>>}>  $contents
      */
     protected function generateContent(
         string $systemInstruction,
@@ -540,11 +551,22 @@ Keep your responses natural and conversational.";
         int $maxTokens,
         float $temperature,
         bool $json = false,
+        ?int $timeout = null,
     ): ?array {
+        $this->lastFailure = null;
+
         if ($this->apiKey === '') {
+            $this->lastFailure = 'GEMINI_API_KEY is not set in .env.';
             Log::error('Gemini API key is not configured');
 
             return null;
+        }
+
+        $hasFile = $this->contentsHaveInlineData($contents);
+        $timeout ??= $hasFile ? $this->documentTimeout : $this->timeout;
+
+        if ($hasFile) {
+            set_time_limit($timeout + 20);
         }
 
         $payload = [
@@ -565,29 +587,68 @@ Keep your responses natural and conversational.";
             $payload['generationConfig']['responseMimeType'] = 'application/json';
         }
 
-        if (preg_match('/(2\.5|3\.|thinking)/i', $this->model)) {
-            $payload['generationConfig']['thinkingConfig'] = [
+        $attempts = [$payload];
+
+        if (! $hasFile && preg_match('/(2\.5|3\.|thinking)/i', $this->model)) {
+            $withThinking = $payload;
+            $withThinking['generationConfig']['thinkingConfig'] = [
                 'thinkingBudget' => 0,
             ];
+            $attempts = [$withThinking, $payload];
         }
 
-        try {
-            $response = Http::timeout(15)
-                ->connectTimeout(5)
-                ->acceptJson()
-                ->withQueryParameters(['key' => $this->apiKey])
-                ->post("{$this->baseUrl}/models/{$this->model}:generateContent", $payload);
+        foreach ($attempts as $index => $attemptPayload) {
+            try {
+                $response = Http::timeout($timeout)
+                    ->connectTimeout(10)
+                    ->acceptJson()
+                    ->withHeaders(['x-goog-api-key' => $this->apiKey])
+                    ->post("{$this->baseUrl}/models/{$this->model}:generateContent", $attemptPayload);
 
-            if ($response->successful()) {
-                return $response->json();
+                if ($response->successful()) {
+                    return $response->json();
+                }
+
+                $message = (string) data_get($response->json(), 'error.message', 'HTTP '.$response->status());
+                $this->lastFailure = mb_substr($message, 0, 180);
+
+                Log::error('Gemini API request failed', [
+                    'status' => $response->status(),
+                    'message' => $this->lastFailure,
+                    'model' => $this->model,
+                ]);
+
+                if ($response->status() === 400 && $index === 0 && count($attempts) > 1) {
+                    continue;
+                }
+            } catch (\Illuminate\Http\Client\ConnectionException $e) {
+                $this->lastFailure = "Gemini timed out after {$timeout}s while reading the file. Try a smaller PDF.";
+                Log::error('Gemini API request timed out', ['seconds' => $timeout, 'model' => $this->model]);
+            } catch (\Throwable $e) {
+                $this->lastFailure = 'Gemini request failed.';
+                Log::error('Gemini API request exception: '.$e->getMessage());
             }
 
-            Log::error('Gemini API request failed: '.$response->body());
-        } catch (\Throwable $e) {
-            Log::error('Gemini API request exception: '.$e->getMessage());
+            break;
         }
 
         return null;
+    }
+
+    /**
+     * @param  array<int, array{role: string, parts: array<int, array<string, mixed>>}>  $contents
+     */
+    protected function contentsHaveInlineData(array $contents): bool
+    {
+        foreach ($contents as $content) {
+            foreach ($content['parts'] ?? [] as $part) {
+                if (isset($part['inlineData'])) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     protected function responseText(?array $response): ?string
@@ -599,6 +660,10 @@ Keep your responses natural and conversational.";
         $text = '';
 
         foreach ($response['candidates'][0]['content']['parts'] ?? [] as $part) {
+            if (! empty($part['thought'])) {
+                continue;
+            }
+
             $text .= (string) ($part['text'] ?? '');
         }
 
@@ -722,12 +787,16 @@ Keep your responses natural and conversational.";
      */
     public function analyzeCurriculumVitae(string $contents, string $mimeType): array
     {
+        if (strlen($contents) > 12_000_000) {
+            throw new \RuntimeException('This CV is too large for Gemini. Upload a PDF under 10 MB.');
+        }
+
         $systemPrompt = 'You are an expert recruiter. Read the attached resume file directly. Return ONLY valid JSON with this exact shape: {"extraction":{"full_name":"","email":"","phone":"","location":"","summary":"","education":[{"institution":"","degree":"","field":"","start_date":"","end_date":""}],"skills":[""],"experience":[{"company":"","title":"","start_date":"","end_date":"","description":""}],"qualifications":[""],"projects":[{"name":"","description":"","technologies":[""]}],"certifications":[{"name":"","issuer":"","date":""}],"technologies":[""],"relevant_experience":[""],"experience_years":0,"experience_level":"entry|mid|senior"},"review":{"score":0,"summary":"","strengths":[""],"improvements":[""]}}. experience_level must be one of entry, mid, senior. score is 0-100. No markdown.';
 
         $response = $this->makeRequest(
             $systemPrompt,
             'Parse the attached resume file and return the JSON review.',
-            1500,
+            4096,
             true,
             [
                 'contents' => $contents,
@@ -737,14 +806,14 @@ Keep your responses natural and conversational.";
         $content = $this->responseText($response);
 
         if ($content !== null) {
-            $decoded = json_decode($this->stripMarkdown($content), true);
+            $decoded = $this->decodeJsonObject($content);
 
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded) && isset($decoded['extraction'])) {
+            if (is_array($decoded) && isset($decoded['extraction'])) {
                 return $this->normalizeCvAnalysis($decoded);
             }
         }
 
-        throw new \RuntimeException('Gemini could not review this CV. Try a PDF and check GEMINI_API_KEY.');
+        throw new \RuntimeException($this->lastFailure ?: 'Gemini could not review this CV. Try a smaller text-based PDF.');
     }
 
     /**
@@ -767,13 +836,13 @@ Keep your responses natural and conversational.";
             ];
         }
 
-        $response = $this->makeRequest($systemPrompt, $userPrompt, 1024, true, $inlineFile);
+        $response = $this->makeRequest($systemPrompt, $userPrompt, 2048, true, $inlineFile);
         $content = $this->responseText($response);
 
         if ($content !== null) {
-            $decoded = json_decode($this->stripMarkdown($content), true);
+            $decoded = $this->decodeJsonObject($content);
 
-            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded) && isset($decoded['score'])) {
+            if (is_array($decoded) && isset($decoded['score'])) {
                 return [
                     'score' => max(0, min(100, (int) $decoded['score'])),
                     'analysis' => [
@@ -864,6 +933,28 @@ Keep your responses natural and conversational.";
             $years >= 3 => 'mid',
             default => 'entry',
         };
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function decodeJsonObject(string $content): ?array
+    {
+        $decoded = json_decode($this->stripMarkdown($content), true);
+
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            return $decoded;
+        }
+
+        if (preg_match('/\{.*\}/s', $content, $matches) === 1) {
+            $decoded = json_decode($matches[0], true);
+
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return null;
     }
 
     protected function stripMarkdown(string $content): string
