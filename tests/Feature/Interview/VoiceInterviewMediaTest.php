@@ -40,6 +40,8 @@ function voiceInterviewSetup(): array
 }
 
 test('voice interviews fall back when google tts is not configured', function () {
+    config(['services.google.tts_api_key' => '']);
+
     $setup = voiceInterviewSetup();
 
     $this->actingAs($setup['candidate'])
