@@ -83,7 +83,8 @@ test('hr can assign a recruitment interview to an applicant', function () {
         ->and($interview->candidate_id)->toBe($candidate->id)
         ->and($interview->questions)->not->toBeEmpty()
         ->and($interview->criteria)->toBe(['Technical depth', 'Role fit'])
-        ->and($interview->question_weights['Technical depth'] ?? null)->toBe(40);
+        ->and($interview->question_weights['Technical depth'] ?? null)->toBe(40)
+        ->and($interview->mode)->toBe('voice');
 });
 
 test('candidates can complete an assigned interview', function () {
@@ -414,6 +415,46 @@ test('voice recruitment interviews render the spoken session page', function () 
         ->get(route('interviews.show', $interview))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->component('job-seeker/InterviewSessionVoice'));
+});
+
+test('assigned interviews open the voice assistant with the question script', function () {
+    $this->withoutVite();
+    $company = Company::factory()->create();
+    $hr = User::factory()->hrProfessional($company->id)->create();
+    $job = Job::factory()->create([
+        'user_id' => $hr->id,
+        'company_id' => $company->id,
+    ]);
+    $candidate = User::factory()->jobSeeker()->create();
+    $application = JobApplication::factory()->create([
+        'user_id' => $candidate->id,
+        'job_id' => $job->id,
+    ]);
+    $interview = Interview::factory()->create([
+        'interview_template_id' => InterviewTemplate::factory()->create([
+            'user_id' => $hr->id,
+            'company_id' => $company->id,
+            'mode' => 'text',
+        ])->id,
+        'job_application_id' => $application->id,
+        'job_id' => $job->id,
+        'candidate_id' => $candidate->id,
+        'mode' => 'text',
+        'status' => 'pending',
+        'questions' => [
+            ['category' => 'technical', 'text' => 'What is REST?'],
+            ['category' => 'behavioral', 'text' => 'Tell me about a challenge.'],
+        ],
+    ]);
+
+    $this->actingAs($candidate)
+        ->get(route('interviews.show', $interview))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('job-seeker/InterviewSessionVoice')
+            ->where('interview.questions.0.text', 'What is REST?')
+            ->has('interview.questions', 2)
+        );
 });
 
 test('voice recruitment interviews store conversation turns and complete from history', function () {

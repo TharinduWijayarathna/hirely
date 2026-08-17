@@ -22,7 +22,7 @@ class InterviewTemplateFactory extends Factory
             'question_count' => 5,
             'duration_minutes' => 30,
             'difficulty' => 'intermediate',
-            'mode' => 'text',
+            'mode' => 'voice',
             'technical_percentage' => 40,
             'behavioral_percentage' => 30,
             'scenario_percentage' => 20,

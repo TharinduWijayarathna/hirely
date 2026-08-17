@@ -102,6 +102,23 @@ test('candidates can upload interview screenshots and a webrtc recording', funct
     Storage::disk('local')->assertExists($interview->screenshots[0]['path']);
 });
 
+test('candidates can upload a random identity still during a voice interview', function () {
+    Storage::fake('local');
+    $setup = voiceInterviewSetup();
+
+    $this->actingAs($setup['candidate'])
+        ->post(route('interviews.screenshots.store', $setup['interview']), [
+            'screenshot' => UploadedFile::fake()->image('random.jpg', 640, 360),
+            'label' => 'random',
+        ])
+        ->assertOk();
+
+    $shot = $setup['interview']->fresh()->screenshots[0];
+
+    expect($shot['label'])->toBe('random')
+        ->and($shot['captured_at'])->not->toBeEmpty();
+});
+
 test('hr can review the recording and outsiders cannot', function () {
     Storage::fake('local');
     $setup = voiceInterviewSetup();

@@ -36,7 +36,7 @@ class InterviewAssignmentService
             'candidate_id' => $application->user_id,
             'assigned_by' => $assignedBy?->id ?? $application->job?->user_id,
             'difficulty' => $template->difficulty,
-            'mode' => $template->mode,
+            'mode' => 'voice',
             'status' => 'pending',
             'questions' => $this->ai->generateConfiguredQuestions(
                 $template->difficulty,

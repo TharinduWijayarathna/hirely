@@ -50,11 +50,8 @@ class InterviewController extends Controller
         }
 
         $fresh = $interview->fresh(['job', 'template']);
-        $view = $fresh->mode === 'voice'
-            ? 'job-seeker/InterviewSessionVoice'
-            : 'job-seeker/InterviewSession';
 
-        return Inertia::render($view, [
+        return Inertia::render('job-seeker/InterviewSessionVoice', [
             'interview' => $fresh,
         ]);
     }

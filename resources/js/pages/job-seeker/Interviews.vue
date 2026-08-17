@@ -87,7 +87,7 @@ const statusBadge = (status: string) => `dash-badge dash-badge-${status}`;
                         </div>
                         <p class="text-sm text-muted-foreground">
                             {{ interview.template?.name || 'Recruitment interview' }} ·
-                            {{ interview.difficulty }} · {{ interview.mode }}
+                            {{ interview.difficulty }} · voice assistant
                         </p>
                         <p class="mt-1 text-xs text-muted-foreground">
                             Assigned {{ new Date(interview.created_at).toLocaleDateString() }}

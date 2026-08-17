@@ -61,7 +61,7 @@ const defaultForm = () => {
         question_count: 5,
         duration_minutes: 30,
         difficulty: 'intermediate',
-        mode: 'text',
+        mode: 'voice',
         technical_percentage: 40,
         behavioral_percentage: 30,
         scenario_percentage: 20,
@@ -251,8 +251,8 @@ const deleteTemplate = (id: number) => {
                             <div class="grid gap-2">
                                 <Label for="mode">Mode</Label>
                                 <select id="mode" v-model="form.mode" class="border-input bg-background h-9 rounded-md border px-3 text-sm">
+                                    <option value="voice">Voice assistant</option>
                                     <option value="text">Text</option>
-                                    <option value="voice">Voice</option>
                                 </select>
                             </div>
                         </div>
