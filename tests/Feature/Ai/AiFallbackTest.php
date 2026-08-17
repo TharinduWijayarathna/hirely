@@ -113,6 +113,19 @@ test('follow-up generation falls back to a heuristic probe when gemini is unset'
     expect($followUp)->toBe('Can you give a specific example that supports your answer?');
 });
 
+test('follow-up generation stays silent for a complete answer when gemini is unset', function () {
+    config(['services.gemini.api_key' => '']);
+
+    $followUp = (new AIService)->generateFollowUpQuestion(
+        'What is REST?',
+        'REST is representational state transfer. Resources are identified by URLs and clients use HTTP verbs to read and update them.',
+        'intermediate',
+        'Backend Engineer',
+    );
+
+    expect($followUp)->toBeNull();
+});
+
 test('mock text interviews can insert a follow-up question', function () {
     config(['services.gemini.api_key' => '']);
     $seeker = User::factory()->jobSeeker()->create();

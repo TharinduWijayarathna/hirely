@@ -82,6 +82,7 @@ test('hr can assign a recruitment interview to an applicant', function () {
     expect($interview)->not->toBeNull()
         ->and($interview->candidate_id)->toBe($candidate->id)
         ->and($interview->questions)->not->toBeEmpty()
+        ->and($interview->questions)->toHaveCount(10)
         ->and($interview->criteria)->toBe(['Technical depth', 'Role fit'])
         ->and($interview->question_weights['Technical depth'] ?? null)->toBe(40)
         ->and($interview->mode)->toBe('voice');
@@ -357,6 +358,46 @@ test('text interviews can insert a follow-up after the answered question', funct
         ->and($questions[1]['follow_up'] ?? false)->toBeTrue()
         ->and($questions[1]['text'])->toBeString()
         ->and($questions[2]['text'])->toBe('Tell me about a challenge.');
+});
+
+test('a complete answer does not insert a clarification question', function () {
+    $company = Company::factory()->create();
+    $hr = User::factory()->hrProfessional($company->id)->create();
+    $job = Job::factory()->create([
+        'user_id' => $hr->id,
+        'company_id' => $company->id,
+    ]);
+    $candidate = User::factory()->jobSeeker()->create();
+    $application = JobApplication::factory()->create([
+        'user_id' => $candidate->id,
+        'job_id' => $job->id,
+    ]);
+    $interview = Interview::factory()->create([
+        'interview_template_id' => InterviewTemplate::factory()->create([
+            'user_id' => $hr->id,
+            'company_id' => $company->id,
+        ])->id,
+        'job_application_id' => $application->id,
+        'job_id' => $job->id,
+        'candidate_id' => $candidate->id,
+        'status' => 'in_progress',
+        'questions' => [
+            ['category' => 'technical', 'text' => 'What is REST?'],
+            ['category' => 'behavioral', 'text' => 'Tell me about a challenge.'],
+        ],
+    ]);
+
+    $this->actingAs($candidate)
+        ->post(route('interviews.follow-up', $interview), [
+            'question' => 'What is REST?',
+            'answer' => 'REST is representational state transfer. Clients identify resources with URLs and use HTTP verbs to read and update them in a stateless way.',
+            'answers' => [
+                'What is REST?' => 'REST is representational state transfer. Clients identify resources with URLs and use HTTP verbs to read and update them in a stateless way.',
+            ],
+        ])
+        ->assertRedirect(route('interviews.show', $interview));
+
+    expect($interview->fresh()->questions)->toHaveCount(2);
 });
 
 test('recruitment interviews cap follow-ups at three', function () {

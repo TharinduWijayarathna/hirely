@@ -19,7 +19,7 @@ class InterviewTemplateFactory extends Factory
             'company_id' => Company::factory(),
             'job_id' => null,
             'name' => 'Standard technical screen',
-            'question_count' => 5,
+            'question_count' => 10,
             'duration_minutes' => 30,
             'difficulty' => 'intermediate',
             'mode' => 'voice',

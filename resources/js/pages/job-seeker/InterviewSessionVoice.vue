@@ -47,9 +47,15 @@ const currentIndex = ref(0);
 const started = ref(false);
 const isListening = ref(false);
 const isProcessing = ref(false);
+const waitingForAnswer = ref(false);
+const paused = ref(false);
 const typedFallback = ref('');
-const transcribedText = ref('');
+const committedText = ref('');
+const interimText = ref('');
 const speechSupported = ref(true);
+
+const transcribedText = computed(() => `${committedText.value} ${interimText.value}`.replace(/\s+/g, ' ').trim());
+const wordCount = computed(() => transcribedText.value.split(/\s+/).filter(Boolean).length);
 
 const currentQuestion = computed(() => questions.value[currentIndex.value] ?? null);
 const currentText = computed(() => (currentQuestion.value ? questionText(currentQuestion.value) : ''));
@@ -79,6 +85,24 @@ const {
 });
 
 let recognition: any = null;
+let silenceTimer: number | null = null;
+let restartTimer: number | null = null;
+const SILENCE_MS = 5000;
+const MIN_AUTO_SUBMIT_WORDS = 12;
+
+const clearSilenceTimer = () => {
+    if (silenceTimer) {
+        window.clearTimeout(silenceTimer);
+        silenceTimer = null;
+    }
+};
+
+const clearRestartTimer = () => {
+    if (restartTimer) {
+        window.clearTimeout(restartTimer);
+        restartTimer = null;
+    }
+};
 
 const initSpeechRecognition = () => {
     const SpeechRecognitionApi = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -89,61 +113,86 @@ const initSpeechRecognition = () => {
     }
 
     recognition = new SpeechRecognitionApi();
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
 
     recognition.onresult = (event: any) => {
         let interim = '';
-        let finalText = '';
 
         for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
+            const transcript = event.results[i][0].transcript.trim();
+            if (!transcript) {
+                continue;
+            }
+
             if (event.results[i].isFinal) {
-                finalText += `${transcript} `;
+                committedText.value = `${committedText.value} ${transcript}`.replace(/\s+/g, ' ').trim();
             } else {
-                interim += transcript;
+                interim += ` ${transcript}`;
             }
         }
 
-        transcribedText.value = (finalText || interim).trim();
+        interimText.value = interim.trim();
+        armSilenceTimer();
     };
 
     recognition.onerror = (event: any) => {
-        isListening.value = false;
-        if (event.error === 'no-speech' && started.value && !isProcessing.value && !isSpeaking.value) {
-            window.setTimeout(() => startListening(), 400);
+        if (event.error === 'no-speech' || event.error === 'aborted') {
+            return;
         }
+        isListening.value = false;
     };
 
     recognition.onend = () => {
         isListening.value = false;
-        const spoken = transcribedText.value.trim();
 
-        if (spoken && started.value && !isProcessing.value) {
-            void submitAnswer(spoken);
-            return;
-        }
-
-        if (started.value && !isProcessing.value && !isSpeaking.value) {
-            window.setTimeout(() => startListening(), 400);
+        if (
+            waitingForAnswer.value &&
+            !paused.value &&
+            started.value &&
+            !isProcessing.value &&
+            !isSpeaking.value
+        ) {
+            clearRestartTimer();
+            restartTimer = window.setTimeout(() => startListening(), 300);
         }
     };
 };
 
+const armSilenceTimer = () => {
+    clearSilenceTimer();
+    silenceTimer = window.setTimeout(() => {
+        if (!waitingForAnswer.value || isProcessing.value || isSpeaking.value) {
+            return;
+        }
+
+        if (wordCount.value >= MIN_AUTO_SUBMIT_WORDS) {
+            void submitAnswer(transcribedText.value);
+        }
+    }, SILENCE_MS);
+};
+
 const speakThenListen = (text: string) => {
+    waitingForAnswer.value = false;
+    committedText.value = '';
+    interimText.value = '';
+    typedFallback.value = '';
+    clearSilenceTimer();
     playSpeech(text, () => {
         void takeScreenshot('random');
+        waitingForAnswer.value = true;
         startListening();
     });
 };
 
 const startListening = () => {
-    if (!recognition || isListening.value || isSpeaking.value || isProcessing.value || !started.value) {
+    if (!recognition || isListening.value || isSpeaking.value || isProcessing.value || !started.value || !waitingForAnswer.value) {
         return;
     }
 
-    transcribedText.value = '';
+    paused.value = false;
+    interimText.value = '';
     isListening.value = true;
 
     try {
@@ -153,11 +202,41 @@ const startListening = () => {
     }
 };
 
-const stopListening = () => {
+const pauseListening = () => {
+    paused.value = true;
+    clearRestartTimer();
+    clearSilenceTimer();
     if (recognition && isListening.value) {
-        recognition.stop();
+        try {
+            recognition.stop();
+        } catch {
+            // Already stopped.
+        }
     }
     isListening.value = false;
+};
+
+const stopListening = () => {
+    waitingForAnswer.value = false;
+    pauseListening();
+};
+
+const toggleMic = () => {
+    if (isListening.value) {
+        pauseListening();
+        return;
+    }
+
+    waitingForAnswer.value = true;
+    startListening();
+};
+
+const finishAnswering = () => {
+    const spoken = transcribedText.value || typedFallback.value;
+    if (spoken.trim().length < 2) {
+        return;
+    }
+    void submitAnswer(spoken);
 };
 
 const speakCurrentQuestion = () => {
@@ -201,10 +280,12 @@ const submitAnswer = async (message: string) => {
     }
 
     isProcessing.value = true;
+    waitingForAnswer.value = false;
     stopListening();
     stopTts();
     typedFallback.value = '';
-    transcribedText.value = '';
+    committedText.value = '';
+    interimText.value = '';
     answers.value[question] = answer;
     conversationHistory.value = [
         ...conversationHistory.value,
@@ -274,6 +355,7 @@ const completeInterview = async () => {
 };
 
 onUnmounted(() => {
+    waitingForAnswer.value = false;
     stopTts();
     stopListening();
     recognition?.abort();
@@ -342,7 +424,7 @@ onUnmounted(() => {
                             AI voice interviewer
                         </CardTitle>
                         <CardDescription>
-                            The assistant asks each interview question out loud, listens to your answer, then continues.
+                            The assistant asks the prepared questions out loud. Keep talking until you are finished, then click I’m done.
                         </CardDescription>
                     </CardHeader>
                     <CardContent class="flex flex-1 flex-col space-y-5">
@@ -372,19 +454,29 @@ onUnmounted(() => {
                                     size="lg"
                                     class="h-16 w-16 flex-shrink-0 rounded-full"
                                     :disabled="isSpeaking || isProcessing"
-                                    @click="isListening ? stopListening() : startListening()"
+                                    @click="toggleMic"
                                 >
                                     <Mic v-if="!isListening" class="h-6 w-6" />
                                     <MicOff v-else class="h-6 w-6" />
                                 </Button>
                                 <div>
                                     <p v-if="isSpeaking" class="text-sm text-muted-foreground">The interviewer is speaking…</p>
-                                    <p v-else-if="isListening" class="animate-pulse text-sm font-medium text-primary">Listening… speak your answer</p>
+                                    <p v-else-if="isListening" class="animate-pulse text-sm font-medium text-primary">
+                                        Listening… take your time. Click I’m done when you have finished.
+                                    </p>
                                     <p v-else-if="isProcessing" class="text-sm text-muted-foreground">Saving your answer and preparing the next question…</p>
-                                    <p v-else class="text-sm text-muted-foreground">Click the microphone if listening did not start.</p>
+                                    <p v-else class="text-sm text-muted-foreground">Click the microphone to keep answering, then I’m done.</p>
                                     <p v-if="transcribedText" class="mt-1 text-sm italic">{{ transcribedText }}</p>
                                 </div>
                             </div>
+
+                            <Button
+                                size="lg"
+                                :disabled="(!transcribedText && typedFallback.trim().length < 2) || isProcessing || isSpeaking"
+                                @click="finishAnswering"
+                            >
+                                I’m done answering
+                            </Button>
 
                             <div class="grid gap-2">
                                 <textarea
@@ -392,9 +484,6 @@ onUnmounted(() => {
                                     class="border-input bg-background min-h-[90px] w-full rounded-md border px-3 py-2 text-sm"
                                     :placeholder="speechSupported ? 'Or type your answer if the microphone misses you' : 'Type your answer and submit'"
                                 />
-                                <Button :disabled="typedFallback.trim().length < 2 || isProcessing || isSpeaking" @click="submitAnswer(typedFallback)">
-                                    Submit answer
-                                </Button>
                             </div>
 
                             <div class="mt-auto flex items-center justify-between border-t pt-4">

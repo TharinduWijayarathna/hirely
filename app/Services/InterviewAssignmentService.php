@@ -29,6 +29,8 @@ class InterviewAssignmentService
             fn ($item) => is_string($item) && trim($item) !== ''
         ));
 
+        $questionCount = max(10, (int) $template->question_count);
+
         $interview = Interview::create([
             'interview_template_id' => $template->id,
             'job_application_id' => $application->id,
@@ -40,7 +42,7 @@ class InterviewAssignmentService
             'status' => 'pending',
             'questions' => $this->ai->generateConfiguredQuestions(
                 $template->difficulty,
-                $template->categoryCounts(),
+                $template->categoryCounts($questionCount),
                 $application->job?->title,
                 $application->job?->description,
                 $application->user?->candidateContext() ?? '',

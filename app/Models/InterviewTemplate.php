@@ -69,9 +69,9 @@ class InterviewTemplate extends Model
             + $this->cv_percentage;
     }
 
-    public function categoryCounts(): array
+    public function categoryCounts(?int $total = null): array
     {
-        $total = max(1, $this->question_count);
+        $total = max(1, $total ?? $this->question_count);
         $categories = [
             'technical' => $this->technical_percentage,
             'behavioral' => $this->behavioral_percentage,

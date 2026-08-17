@@ -58,7 +58,7 @@ const defaultForm = () => {
     return {
         name: '',
         job_id: '',
-        question_count: 5,
+        question_count: 10,
         duration_minutes: 30,
         difficulty: 'intermediate',
         mode: 'voice',

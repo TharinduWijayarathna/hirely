@@ -30,7 +30,7 @@ class InterviewController extends Controller
         ]);
     }
 
-    public function show(Interview $interview): Response
+    public function show(Interview $interview, AIService $aiService): Response
     {
         $this->authorizeCandidate($interview);
 
@@ -46,6 +46,26 @@ class InterviewController extends Controller
             $interview->update([
                 'status' => 'in_progress',
                 'started_at' => $interview->started_at ?? now(),
+            ]);
+        }
+
+        if (($interview->questions ?? []) === []) {
+            $template = $interview->template;
+            $count = max(10, (int) ($template?->question_count ?? 10));
+            $interview->update([
+                'questions' => $aiService->generateConfiguredQuestions(
+                    $interview->difficulty,
+                    $template?->categoryCounts($count) ?? [
+                        'technical' => 4,
+                        'behavioral' => 3,
+                        'scenario' => 2,
+                        'cv' => 1,
+                    ],
+                    $interview->job?->title,
+                    $interview->job?->description,
+                    $interview->candidate?->candidateContext() ?? '',
+                    $interview->evaluationCriteria(),
+                ),
             ]);
         }
 
@@ -73,9 +93,12 @@ class InterviewController extends Controller
 
         $questions = $interview->questions ?? [];
         $followUps = collect($questions)->where('follow_up', true)->count();
+        $alreadyClarified = collect($questions)->contains(
+            fn ($question) => is_array($question) && ($question['parent'] ?? null) === $validated['question']
+        );
         $followUp = null;
 
-        if ($followUps < 3) {
+        if ($followUps < 3 && ! $alreadyClarified) {
             $followUp = $aiService->generateFollowUpQuestion(
                 $validated['question'],
                 $validated['answer'],

@@ -75,9 +75,9 @@ class AIService
             ->map(fn (int $count, string $category) => "{$count} {$labels[$category]} questions (key \"{$category}\")")
             ->implode(', ');
 
-        $systemPrompt = "You are an expert technical interviewer. Generate interview questions for a {$difficultyLabels[$difficulty]} candidate. Return ONLY valid JSON with this exact shape: {\"technical\": [\"...\"], \"behavioral\": [\"...\"], \"scenario\": [\"...\"], \"cv\": [\"...\"]}. Include only the keys that were requested. No markdown.";
+        $systemPrompt = "You are an expert technical interviewer. In a SINGLE response, generate the complete interview question set for a {$difficultyLabels[$difficulty]} candidate. Do not generate extra questions later. Return ONLY valid JSON with this exact shape: {\"technical\": [\"...\"], \"behavioral\": [\"...\"], \"scenario\": [\"...\"], \"cv\": [\"...\"]}. Include only the keys that were requested, with exactly the requested counts. No markdown.";
 
-        $userPrompt = "Generate {$spec}. Questions must be specific to the role and candidate when context is provided.\n{$context}";
+        $userPrompt = "Generate the full interview now: {$spec}. Questions must be specific to the role and candidate when context is provided. Return the complete set in this one response.\n{$context}";
 
         try {
             $response = $this->makeRequest($systemPrompt, $userPrompt, 2000, true);
@@ -156,13 +156,13 @@ class AIService
             return 'Please share a bit more detail so I can follow up on that question.';
         }
 
-        $systemPrompt = 'You are an expert interviewer. Return ONLY one short follow-up question as plain text. No quotes or markdown. If the answer is already thorough, return the exact word NONE.';
+        $systemPrompt = 'You are an expert interviewer. The full question list already exists. Only ask a clarification if the candidate answer is clearly incomplete, vague, or only a couple of words. If the answer is usable, return the exact word NONE. Return ONLY one short follow-up question as plain text, or NONE. No quotes or markdown.';
         $jobLine = $jobTitle ? "Job title: {$jobTitle}\n" : '';
 
         try {
             $response = $this->makeRequest(
                 $systemPrompt,
-                "{$jobLine}Difficulty: {$difficulty}\nOriginal question: {$question}\nCandidate answer: {$answer}\nWrite one follow-up that probes for evidence, trade-offs, or a concrete example.",
+                "{$jobLine}Difficulty: {$difficulty}\nOriginal question: {$question}\nCandidate answer: {$answer}\nIf this answer needs clarification, write one follow-up. Otherwise return NONE.",
                 200
             );
 
@@ -173,7 +173,7 @@ class AIService
                 $followUp = trim($followUp, " \t\n\r\0\x0B\"'");
 
                 if ($followUp === '' || strcasecmp($followUp, 'NONE') === 0) {
-                    return $this->heuristicFollowUp($question, $answer);
+                    return null;
                 }
 
                 return $followUp;
@@ -187,15 +187,15 @@ class AIService
 
     protected function heuristicFollowUp(string $question, string $answer): ?string
     {
-        if (mb_strlen($answer) > 280) {
+        if (str_word_count($answer) >= 12 || mb_strlen($answer) >= 80) {
             return null;
         }
 
-        if (mb_strlen($answer) < 80) {
+        if (mb_strlen($answer) < 40) {
             return 'Can you give a specific example that supports your answer?';
         }
 
-        return 'What was the outcome, and how did you measure success?';
+        return null;
     }
 
     /**
