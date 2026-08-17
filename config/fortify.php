@@ -2,6 +2,9 @@
 
 use Laravel\Fortify\Features;
 
+$twoFactorEnabled = filter_var(env('TWO_FACTOR_ENABLED', true), FILTER_VALIDATE_BOOLEAN);
+$emailVerificationEnabled = filter_var(env('EMAIL_VERIFICATION_ENABLED', true), FILTER_VALIDATE_BOOLEAN);
+
 return [
 
     /*
@@ -134,6 +137,32 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Two-Factor Authentication
+    |--------------------------------------------------------------------------
+    |
+    | When true, users must set up an authenticator app after verifying their
+    | email, and login requires a TOTP code. Set TWO_FACTOR_ENABLED=false to
+    | turn the feature off for local or demo environments.
+    |
+    */
+
+    'two_factor' => $twoFactorEnabled,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Email Verification
+    |--------------------------------------------------------------------------
+    |
+    | When true, new users must confirm the link emailed to them before they
+    | can use Hirely. Set EMAIL_VERIFICATION_ENABLED=false to skip that step
+    | for local or demo environments.
+    |
+    */
+
+    'email_verification' => $emailVerificationEnabled,
+
+    /*
+    |--------------------------------------------------------------------------
     | Features
     |--------------------------------------------------------------------------
     |
@@ -143,15 +172,15 @@ return [
     |
     */
 
-    'features' => [
+    'features' => array_values(array_filter([
         Features::registration(),
         Features::resetPasswords(),
-        Features::emailVerification(),
-        Features::twoFactorAuthentication([
+        $emailVerificationEnabled ? Features::emailVerification() : null,
+        $twoFactorEnabled ? Features::twoFactorAuthentication([
             'confirm' => true,
             'confirmPassword' => true,
             // 'window' => 0
-        ]),
-    ],
+        ]) : null,
+    ])),
 
 ];

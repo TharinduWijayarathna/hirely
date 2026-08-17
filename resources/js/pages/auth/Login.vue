@@ -10,19 +10,26 @@ import AuthBase from '@/layouts/AuthLayout.vue';
 import { register } from '@/routes';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
-import { Form, Head } from '@inertiajs/vue3';
+import { Form, Head, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 
 defineProps<{
     status?: string;
     canResetPassword: boolean;
     canRegister: boolean;
 }>();
+
+const twoFactorEnabled = computed(() => usePage().props.twoFactor?.enabled !== false);
 </script>
 
 <template>
     <AuthBase
         title="Log in to your account"
-        description="Enter your email and password. If two-factor is enabled, you'll enter an authenticator code next."
+        :description="
+            twoFactorEnabled
+                ? 'Enter your email and password. If two-factor is enabled, you\'ll enter an authenticator code next.'
+                : 'Enter your email and password below to log in.'
+        "
     >
         <Head title="Log in" />
 

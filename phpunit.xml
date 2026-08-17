@@ -33,5 +33,7 @@
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
         <env name="PAYMENTS_REQUIRED" value="true"/>
+        <env name="TWO_FACTOR_ENABLED" value="true"/>
+        <env name="EMAIL_VERIFICATION_ENABLED" value="true"/>
     </php>
 </phpunit>

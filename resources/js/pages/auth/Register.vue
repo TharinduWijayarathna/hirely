@@ -8,13 +8,34 @@ import { Spinner } from '@/components/ui/spinner';
 import AuthBase from '@/layouts/AuthLayout.vue';
 import { login } from '@/routes';
 import { store } from '@/routes/register';
-import { Form, Head } from '@inertiajs/vue3';
+import { Form, Head, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+
+const page = usePage();
+const twoFactorEnabled = computed(() => page.props.twoFactor?.enabled !== false);
+const emailVerificationEnabled = computed(() => page.props.emailVerification?.enabled !== false);
+
+const registerDescription = computed(() => {
+    if (emailVerificationEnabled.value && twoFactorEnabled.value) {
+        return "We'll email a verification link, then you'll set up two-factor authentication before you can use Hirely.";
+    }
+
+    if (emailVerificationEnabled.value) {
+        return "Enter your details below to create your account. We'll email a verification link.";
+    }
+
+    if (twoFactorEnabled.value) {
+        return "Enter your details below to create your account. Then you'll set up two-factor authentication.";
+    }
+
+    return 'Enter your details below to create your account.';
+});
 </script>
 
 <template>
     <AuthBase
         title="Create an account"
-        description="We'll email a verification link, then you'll set up two-factor authentication before you can use Hirely."
+        :description="registerDescription"
     >
         <Head title="Register" />
 
@@ -92,8 +113,14 @@ import { Form, Head } from '@inertiajs/vue3';
                     <Spinner v-if="processing" />
                     Create account
                 </Button>
-                <p class="text-center text-xs text-muted-foreground">
+                <p v-if="emailVerificationEnabled && twoFactorEnabled" class="text-center text-xs text-muted-foreground">
                     After you register, confirm your email, then enable an authenticator app for login.
+                </p>
+                <p v-else-if="emailVerificationEnabled" class="text-center text-xs text-muted-foreground">
+                    After you register, confirm your email to continue.
+                </p>
+                <p v-else-if="twoFactorEnabled" class="text-center text-xs text-muted-foreground">
+                    After you register, you'll enable an authenticator app for login.
                 </p>
             </div>
 

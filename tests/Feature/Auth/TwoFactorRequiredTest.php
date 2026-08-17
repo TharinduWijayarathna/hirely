@@ -43,3 +43,48 @@ test('email verification then sends the user to two factor setup', function () {
 
     expect($user->fresh()->hasVerifiedEmail())->toBeTrue();
 });
+
+test('two factor setup is skipped when the feature is disabled', function () {
+    config([
+        'fortify.two_factor' => false,
+        'fortify.features' => array_values(array_filter(
+            config('fortify.features'),
+            fn ($feature) => $feature !== Features::twoFactorAuthentication()
+        )),
+    ]);
+
+    $user = User::factory()->withoutTwoFactor()->create();
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertOk();
+});
+
+test('login skips two factor challenge when the feature is disabled', function () {
+    config([
+        'fortify.two_factor' => false,
+        'fortify.features' => array_values(array_filter(
+            config('fortify.features'),
+            fn ($feature) => $feature !== Features::twoFactorAuthentication()
+        )),
+    ]);
+
+    $user = User::factory()->withoutTwoFactor()->create();
+
+    $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ])->assertRedirect(route('dashboard', absolute: false));
+
+    $this->assertAuthenticated();
+});
+
+test('unverified users can use the dashboard when email verification is disabled', function () {
+    disableEmailVerification();
+
+    $user = User::factory()->unverified()->create();
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertOk();
+});

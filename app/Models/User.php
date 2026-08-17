@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\PostAuthRedirect;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -62,6 +63,15 @@ class User extends Authenticatable implements MustVerifyEmail
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
         ];
+    }
+
+    public function hasVerifiedEmail(): bool
+    {
+        if (! PostAuthRedirect::emailVerificationEnabled()) {
+            return true;
+        }
+
+        return ! is_null($this->email_verified_at);
     }
 
     public function company(): BelongsTo

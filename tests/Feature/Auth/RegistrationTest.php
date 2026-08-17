@@ -31,6 +31,25 @@ test('new users can register', function () {
     Notification::assertSentTo($user, VerifyEmail::class);
 });
 
+test('registration skips email verification when the feature is disabled', function () {
+    disableEmailVerification();
+    Notification::fake();
+
+    $this->post(route('register.store'), [
+        'name' => 'Test User',
+        'email' => 'skip-verify@example.com',
+        'password' => 'password',
+        'password_confirmation' => 'password',
+    ])->assertRedirect(route('two-factor.show'));
+
+    $this->assertAuthenticated();
+
+    $user = User::where('email', 'skip-verify@example.com')->first();
+    expect($user->email_verified_at)->toBeNull();
+
+    Notification::assertNothingSent();
+});
+
 test('public registration cannot escalate to admin', function () {
     $this->post(route('register.store'), [
         'name' => 'Attacker',

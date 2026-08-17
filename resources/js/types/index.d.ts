@@ -39,6 +39,12 @@ export type AppPageProps<
     payments?: {
         required: boolean;
     };
+    twoFactor?: {
+        enabled: boolean;
+    };
+    emailVerification?: {
+        enabled: boolean;
+    };
 };
 
 export type UserRole = 'job_seeker' | 'hr_professional' | 'admin';

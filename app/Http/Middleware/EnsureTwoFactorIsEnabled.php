@@ -5,7 +5,6 @@ namespace App\Http\Middleware;
 use App\Support\PostAuthRedirect;
 use Closure;
 use Illuminate\Http\Request;
-use Laravel\Fortify\Features;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsureTwoFactorIsEnabled
@@ -17,7 +16,7 @@ class EnsureTwoFactorIsEnabled
     {
         $user = $request->user();
 
-        if (! $user || ! Features::enabled(Features::twoFactorAuthentication())) {
+        if (! $user || ! PostAuthRedirect::twoFactorEnabled()) {
             return $next($request);
         }
 

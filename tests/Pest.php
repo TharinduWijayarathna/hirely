@@ -69,3 +69,14 @@ function subscribeToPlan(\App\Models\User $user, array $limits, array $plan = []
         'starts_at' => now(),
     ]);
 }
+
+function disableEmailVerification(): void
+{
+    config([
+        'fortify.email_verification' => false,
+        'fortify.features' => array_values(array_filter(
+            config('fortify.features'),
+            fn ($feature) => $feature !== \Laravel\Fortify\Features::emailVerification()
+        )),
+    ]);
+}

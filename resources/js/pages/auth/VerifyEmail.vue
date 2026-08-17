@@ -5,17 +5,24 @@ import { Spinner } from '@/components/ui/spinner';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import { logout } from '@/routes';
 import { send } from '@/routes/verification';
-import { Form, Head } from '@inertiajs/vue3';
+import { Form, Head, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
 
 defineProps<{
     status?: string;
 }>();
+
+const twoFactorEnabled = computed(() => usePage().props.twoFactor?.enabled !== false);
 </script>
 
 <template>
     <AuthLayout
         title="Verify email"
-        description="Click the link we just emailed you. After that you'll set up two-factor authentication for login."
+        :description="
+            twoFactorEnabled
+                ? 'Click the link we just emailed you. After that you\'ll set up two-factor authentication for login.'
+                : 'Please verify your email address by clicking on the link we just emailed to you.'
+        "
     >
         <Head title="Email verification" />
 

@@ -44,12 +44,26 @@ class PostAuthRedirect
 
     public static function mustVerifyEmail(mixed $user): bool
     {
-        return $user instanceof MustVerifyEmail && ! $user->hasVerifiedEmail();
+        return self::emailVerificationEnabled()
+            && $user instanceof MustVerifyEmail
+            && ! $user->hasVerifiedEmail();
+    }
+
+    public static function emailVerificationEnabled(): bool
+    {
+        return (bool) config('fortify.email_verification', true)
+            && Features::enabled(Features::emailVerification());
+    }
+
+    public static function twoFactorEnabled(): bool
+    {
+        return (bool) config('fortify.two_factor', true)
+            && Features::enabled(Features::twoFactorAuthentication());
     }
 
     public static function mustSetupTwoFactor(mixed $user): bool
     {
-        return Features::enabled(Features::twoFactorAuthentication())
+        return self::twoFactorEnabled()
             && is_object($user)
             && method_exists($user, 'hasEnabledTwoFactorAuthentication')
             && ! $user->hasEnabledTwoFactorAuthentication();

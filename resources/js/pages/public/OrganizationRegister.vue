@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import PublicLayout from '@/layouts/PublicLayout.vue';
 import { login, register } from '@/routes';
-import { Link, useForm } from '@inertiajs/vue3';
+import { Link, useForm, usePage } from '@inertiajs/vue3';
+import { computed } from 'vue';
+
+const twoFactorEnabled = computed(() => usePage().props.twoFactor?.enabled !== false);
+const emailVerificationEnabled = computed(() => usePage().props.emailVerification?.enabled !== false);
 
 const form = useForm({
     organization_name: '',
@@ -27,7 +31,9 @@ const submit = () => {
                 </h1>
                 <p class="mt-4 leading-8 text-white/85">
                     Creates your company page at /organization/your-company and an HR account that can post jobs.
-                    We'll verify your email, then you'll enable two-factor authentication.
+                    <template v-if="emailVerificationEnabled && twoFactorEnabled"> We'll verify your email, then you'll enable two-factor authentication.</template>
+                    <template v-else-if="emailVerificationEnabled"> We'll verify your email.</template>
+                    <template v-else-if="twoFactorEnabled"> You'll enable two-factor authentication after you register.</template>
                 </p>
             </div>
 
