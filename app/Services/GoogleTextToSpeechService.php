@@ -31,7 +31,8 @@ class GoogleTextToSpeechService
         }
 
         try {
-            $response = Http::timeout(20)
+            $response = Http::timeout(12)
+                ->connectTimeout(5)
                 ->acceptJson()
                 ->withQueryParameters([
                     'key' => config('services.google.tts_api_key'),

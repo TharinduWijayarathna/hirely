@@ -21,6 +21,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        @set_time_limit(120);
+
         TrustProxies::at('*');
 
         if ($this->app->environment('production')) {

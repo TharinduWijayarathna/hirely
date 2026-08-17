@@ -80,7 +80,7 @@ class AIService
         $userPrompt = "Generate the full interview now: {$spec}. Questions must be specific to the role and candidate when context is provided. Return the complete set in this one response.\n{$context}";
 
         try {
-            $response = $this->makeRequest($systemPrompt, $userPrompt, 2000, true);
+            $response = $this->makeRequest($systemPrompt, $userPrompt, 1024, true);
             $content = $this->responseText($response);
 
             if ($content !== null) {
@@ -97,6 +97,20 @@ class AIService
         return $this->flattenCategorizedQuestions(
             $this->getDefaultCategorizedQuestions($difficulty),
             $requested
+        );
+    }
+
+    /**
+     * Local question bank used when Gemini is unavailable or too slow.
+     *
+     * @param  array<string, int>  $categoryCounts
+     * @return array<int, array{category: string, text: string}>
+     */
+    public function fallbackConfiguredQuestions(string $difficulty, array $categoryCounts): array
+    {
+        return $this->flattenCategorizedQuestions(
+            $this->getDefaultCategorizedQuestions($difficulty),
+            $categoryCounts
         );
     }
 
@@ -122,7 +136,7 @@ class AIService
         $userPrompt = "Generate exactly {$count} {$typeLabels[$type]} interview questions for {$difficultyLabels[$difficulty]} level candidates. Return as a valid JSON array format: [\"Question 1?\", \"Question 2?\", \"Question 3?\"]";
 
         try {
-            $response = $this->makeRequest($systemPrompt, $userPrompt, 2000, true);
+            $response = $this->makeRequest($systemPrompt, $userPrompt, 1024, true);
             $content = $this->responseText($response);
 
             if ($content !== null) {
@@ -365,7 +379,7 @@ Keep your responses natural and conversational.";
             $response = $this->makeRequest(
                 $systemPrompt,
                 "{$jobLine}Difficulty: {$difficulty}\nCriteria: {$criteriaList}\n\n{$transcript}",
-                4000,
+                1500,
                 true
             );
             $content = $this->responseText($response);
@@ -540,8 +554,17 @@ Keep your responses natural and conversational.";
             $payload['generationConfig']['responseMimeType'] = 'application/json';
         }
 
+        if (preg_match('/(2\.5|3\.|thinking)/i', $this->model)) {
+            $payload['generationConfig']['thinkingConfig'] = [
+                'thinkingBudget' => 0,
+            ];
+        }
+
         try {
-            $response = Http::timeout(60)
+            @set_time_limit(120);
+
+            $response = Http::timeout(15)
+                ->connectTimeout(5)
                 ->acceptJson()
                 ->withQueryParameters(['key' => $this->apiKey])
                 ->post("{$this->baseUrl}/models/{$this->model}:generateContent", $payload);
@@ -551,7 +574,7 @@ Keep your responses natural and conversational.";
             }
 
             Log::error('Gemini API request failed: '.$response->body());
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Gemini API request exception: '.$e->getMessage());
         }
 
@@ -693,7 +716,7 @@ Keep your responses natural and conversational.";
         $systemPrompt = 'You are an expert recruiter and CV parser. Extract structured data and a quality review from the resume. Return ONLY valid JSON with this exact shape: {"extraction":{"full_name":"","email":"","phone":"","location":"","summary":"","education":[{"institution":"","degree":"","field":"","start_date":"","end_date":""}],"skills":[""],"experience":[{"company":"","title":"","start_date":"","end_date":"","description":""}],"qualifications":[""],"projects":[{"name":"","description":"","technologies":[""]}],"certifications":[{"name":"","issuer":"","date":""}],"technologies":[""],"relevant_experience":[""],"experience_years":0,"experience_level":"entry|mid|senior"},"review":{"score":0,"summary":"","strengths":[""],"improvements":[""]}}. experience_level must be one of entry, mid, senior. score is 0-100. No markdown.';
 
         try {
-            $response = $this->makeRequest($systemPrompt, "Parse this resume:\n\n{$text}", 4000, true);
+            $response = $this->makeRequest($systemPrompt, "Parse this resume:\n\n{$text}", 1500, true);
             $content = $this->responseText($response);
 
             if ($content !== null) {
@@ -724,7 +747,7 @@ Keep your responses natural and conversational.";
         $userPrompt = "Job description:\n{$jobDescription}\n\nKnown skills: {$skills}\n\nResume:\n{$cvText}";
 
         try {
-            $response = $this->makeRequest($systemPrompt, $userPrompt, 2000, true);
+            $response = $this->makeRequest($systemPrompt, $userPrompt, 1024, true);
             $content = $this->responseText($response);
 
             if ($content !== null) {

@@ -53,7 +53,7 @@ class InterviewController extends Controller
             $template = $interview->template;
             $count = max(10, (int) ($template?->question_count ?? 10));
             $interview->update([
-                'questions' => $aiService->generateConfiguredQuestions(
+                'questions' => $aiService->fallbackConfiguredQuestions(
                     $interview->difficulty,
                     $template?->categoryCounts($count) ?? [
                         'technical' => 4,
@@ -61,10 +61,6 @@ class InterviewController extends Controller
                         'scenario' => 2,
                         'cv' => 1,
                     ],
-                    $interview->job?->title,
-                    $interview->job?->description,
-                    $interview->candidate?->candidateContext() ?? '',
-                    $interview->evaluationCriteria(),
                 ),
             ]);
         }
