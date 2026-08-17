@@ -16,7 +16,7 @@ class PlanLimitService
      */
     public function limitsFor(User $user): array
     {
-        if ($user->isAdmin()) {
+        if ($user->isAdmin() || ! $this->paymentsRequired()) {
             return [
                 'jobs' => null,
                 'reports' => true,
@@ -33,6 +33,11 @@ class PlanLimitService
         $plan = $this->currentPlan($user);
 
         return array_merge($defaults, $plan?->limits ?? []);
+    }
+
+    public function paymentsRequired(): bool
+    {
+        return (bool) config('payments.required');
     }
 
     public function currentPlan(User $user): ?PaymentPlan

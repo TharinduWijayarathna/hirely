@@ -73,38 +73,48 @@ class PaymentController extends Controller
             return redirect()->back()->with('error', 'This plan is not available for your role.');
         }
 
-        // If upgrading from free plan, cancel the free subscription first
-        $activeSubscription = $user->activeSubscription;
-        if ($activeSubscription && $activeSubscription->payment_plan && $activeSubscription->payment_plan->amount == 0 && $plan->amount > 0) {
-            // Cancel free subscription when upgrading to paid
-            $activeSubscription->update([
-                'status' => 'canceled',
-                'canceled_at' => now(),
-            ]);
-        }
-
         try {
-            // Handle free plans directly without Stripe
-            if ($plan->amount == 0) {
-                // Create subscription directly in database for free plans
-                $subscription = \App\Models\Subscription::create([
-                    'user_id' => $user->id,
-                    'payment_plan_id' => $plan->id,
-                    'status' => 'active',
-                    'starts_at' => now(),
-                    'ends_at' => $plan->interval === 'month' ? now()->addMonth() : now()->addYear(),
-                ]);
+            $activeSubscription = $user->activeSubscription;
 
-                // Return JSON response for AJAX requests
+            // Free plans, or any plan when the payment gateway is off, skip Stripe.
+            if ($plan->amount == 0 || ! config('payments.required')) {
+                if ($activeSubscription && $activeSubscription->payment_plan_id !== $plan->id) {
+                    $activeSubscription->update([
+                        'status' => 'canceled',
+                        'canceled_at' => now(),
+                    ]);
+                }
+
+                if (! $activeSubscription || $activeSubscription->payment_plan_id !== $plan->id) {
+                    \App\Models\Subscription::create([
+                        'user_id' => $user->id,
+                        'payment_plan_id' => $plan->id,
+                        'status' => 'active',
+                        'starts_at' => now(),
+                        'ends_at' => $plan->interval === 'month' ? now()->addMonth() : now()->addYear(),
+                    ]);
+                }
+
+                $message = $plan->amount == 0
+                    ? 'Free subscription activated!'
+                    : 'Subscription activated.';
+
                 if ($request->wantsJson() || $request->ajax()) {
                     return response()->json([
                         'success' => true,
-                        'message' => 'Free subscription activated!',
+                        'message' => $message,
                         'redirect_url' => route($user->billingRouteName()),
                     ]);
                 }
 
-                return redirect()->route($user->billingRouteName())->with('success', 'Free subscription activated!');
+                return redirect()->route($user->billingRouteName())->with('success', $message);
+            }
+
+            if ($activeSubscription && $activeSubscription->payment_plan && $activeSubscription->payment_plan->amount == 0 && $plan->amount > 0) {
+                $activeSubscription->update([
+                    'status' => 'canceled',
+                    'canceled_at' => now(),
+                ]);
             }
 
             // Create price if it doesn't exist for paid plans
@@ -244,6 +254,11 @@ class PaymentController extends Controller
      */
     public function billingPortal(Request $request)
     {
+        if (! config('payments.required')) {
+            return redirect()->route($request->user()->billingRouteName())
+                ->with('info', 'Payment gateway is disabled.');
+        }
+
         $user = $request->user();
 
         try {

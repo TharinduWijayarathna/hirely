@@ -13,6 +13,7 @@ abstract class TestCase extends BaseTestCase
         config([
             'services.gemini.api_key' => '',
             'services.google.tts_api_key' => '',
+            'payments.required' => true,
         ]);
     }
 }

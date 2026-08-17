@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { payments } from '@/routes';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { CreditCard, CheckCircle2, Sparkles, Zap, ArrowUp } from 'lucide-vue-next';
 import { computed } from 'vue';
 
@@ -33,6 +33,8 @@ interface Props {
 }
 
 const props = defineProps<Props>();
+const page = usePage();
+const paymentsRequired = computed(() => page.props.payments?.required ?? true);
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -158,6 +160,9 @@ const getFirstPremiumPlan = () => {
                 <h1 class="text-3xl font-bold tracking-tight">Premium Features</h1>
                 <p class="text-muted-foreground mt-2">
                     Unlock premium features to enhance your job search experience
+                </p>
+                <p v-if="!paymentsRequired" class="mt-2 text-sm text-amber-700 dark:text-amber-400">
+                    Payment gateway is off. Plans can be activated without Stripe.
                 </p>
             </div>
 

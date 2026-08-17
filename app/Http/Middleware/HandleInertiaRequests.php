@@ -60,6 +60,9 @@ class HandleInertiaRequests extends Middleware
                 ] : null,
             ],
             'notifications' => $this->notifications($request),
+            'payments' => [
+                'required' => (bool) config('payments.required'),
+            ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

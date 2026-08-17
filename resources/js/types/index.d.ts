@@ -36,6 +36,9 @@ export type AppPageProps<
             created_at?: string | null;
         }>;
     };
+    payments?: {
+        required: boolean;
+    };
 };
 
 export type UserRole = 'job_seeker' | 'hr_professional' | 'admin';

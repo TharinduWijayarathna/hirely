@@ -48,6 +48,7 @@ interface Props {
 const props = defineProps<Props>();
 const page = usePage();
 const errors = computed(() => page.props.errors || {});
+const paymentsRequired = computed(() => page.props.payments?.required ?? true);
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -194,9 +195,12 @@ const getFirstPremiumPlan = () => {
                     <p class="text-muted-foreground mt-2">
                         View and manage your subscription plans and billing
                     </p>
+                    <p v-if="!paymentsRequired" class="mt-2 text-sm text-amber-700 dark:text-amber-400">
+                        Payment gateway is off. Plans can be activated without Stripe.
+                    </p>
                     <InputError class="mt-2" :message="errors.plan" />
                 </div>
-                <Button v-if="activeSubscription && !isFreePlan" @click="handleBillingPortal" variant="outline">
+                <Button v-if="paymentsRequired && activeSubscription && !isFreePlan" @click="handleBillingPortal" variant="outline">
                     <CreditCard class="h-4 w-4 mr-2" />
                     Billing Portal
                 </Button>
