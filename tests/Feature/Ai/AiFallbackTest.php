@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\CvDocument;
 use App\Models\MockInterviewSession;
 use App\Models\User;
 use App\Services\AIService;
@@ -89,6 +90,7 @@ test('ats scoring falls back to heuristics when gemini is unset', function () {
 test('mock interviews still start with fallback questions when gemini is unset', function () {
     config(['services.gemini.api_key' => '']);
     $seeker = User::factory()->jobSeeker()->create();
+    CvDocument::factory()->create(['user_id' => $seeker->id]);
 
     $this->actingAs($seeker)
         ->post(route('mock-interview.store'), [
@@ -99,10 +101,13 @@ test('mock interviews still start with fallback questions when gemini is unset',
         ->assertRedirect();
 
     $session = MockInterviewSession::where('user_id', $seeker->id)->first();
+    $categories = collect($session->questions)->pluck('category');
 
     expect($session)->not->toBeNull()
-        ->and($session->questions)->toBeArray()
-        ->and($session->questions[0])->toContain('REST');
+        ->and($session->questions)->toHaveCount(10)
+        ->and($session->questions[0]['category'])->toBe('technical')
+        ->and($session->questions[0]['text'])->toContain('REST')
+        ->and($categories->filter(fn ($category) => $category === 'cv')->count())->toBe(3);
 });
 
 test('follow-up generation falls back to a heuristic probe when gemini is unset', function () {

@@ -178,12 +178,69 @@ class User extends Authenticatable
         $cv = $this->latestProcessedCv;
         if ($cv?->extraction) {
             $extraction = $cv->extraction;
+            if (! empty($extraction['full_name'])) {
+                $parts[] = 'Name: '.$extraction['full_name'];
+            }
             if (! empty($extraction['summary'])) {
                 $parts[] = 'CV summary: '.$extraction['summary'];
             }
             $cvSkills = array_filter($extraction['skills'] ?? []);
             if ($cvSkills !== []) {
                 $parts[] = 'CV skills: '.implode(', ', $cvSkills);
+            }
+            $technologies = array_filter($extraction['technologies'] ?? []);
+            if ($technologies !== []) {
+                $parts[] = 'Technologies: '.implode(', ', $technologies);
+            }
+            $experience = collect($extraction['experience'] ?? [])
+                ->map(function ($row): string {
+                    if (! is_array($row)) {
+                        return trim((string) $row);
+                    }
+
+                    $role = trim(($row['title'] ?? '').' at '.($row['company'] ?? ''));
+                    $description = trim((string) ($row['description'] ?? ''));
+
+                    return trim($role.($description !== '' ? ': '.$description : ''), ' at:');
+                })
+                ->filter()
+                ->take(5)
+                ->implode('; ');
+            if ($experience !== '') {
+                $parts[] = 'Work history: '.$experience;
+            }
+            $cvProjects = collect($extraction['projects'] ?? [])
+                ->map(function ($project): string {
+                    if (is_string($project)) {
+                        return $project;
+                    }
+                    if (! is_array($project)) {
+                        return '';
+                    }
+
+                    $tech = is_array($project['technologies'] ?? null) ? implode(', ', $project['technologies']) : '';
+
+                    return trim(($project['name'] ?? '').($tech !== '' ? " ({$tech})" : '').(! empty($project['description']) ? ': '.$project['description'] : ''));
+                })
+                ->filter()
+                ->take(5)
+                ->implode('; ');
+            if ($cvProjects !== '') {
+                $parts[] = 'CV projects: '.$cvProjects;
+            }
+            $education = collect($extraction['education'] ?? [])
+                ->map(function ($row): string {
+                    if (! is_array($row)) {
+                        return trim((string) $row);
+                    }
+
+                    return trim(($row['degree'] ?? '').' '.($row['field'] ?? '').' at '.($row['institution'] ?? ''));
+                })
+                ->filter()
+                ->take(3)
+                ->implode('; ');
+            if ($education !== '') {
+                $parts[] = 'Education: '.$education;
             }
             if (! empty($extraction['relevant_experience'])) {
                 $parts[] = 'Relevant experience: '.implode('; ', $extraction['relevant_experience']);

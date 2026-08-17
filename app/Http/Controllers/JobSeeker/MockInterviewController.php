@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\MockInterviewSession;
 use App\Services\AIService;
 use App\Services\GoogleTextToSpeechService;
+use App\Services\MockInterviewQuestionService;
 use App\Services\PlanLimitService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -37,13 +38,22 @@ class MockInterviewController extends Controller
             'sessions' => $sessions,
             'stats' => $stats,
             'quota' => $limits->quota($user, 'mock_interviews'),
+            'hasCv' => (bool) $user->latestProcessedCv,
         ]);
     }
 
-    public function store(Request $request, AIService $aiService, PlanLimitService $limits)
+    public function store(Request $request, MockInterviewQuestionService $questions, PlanLimitService $limits)
     {
-        if ($message = $limits->denyMessage(Auth::user(), 'mock_interviews')) {
+        $user = Auth::user();
+
+        if ($message = $limits->denyMessage($user, 'mock_interviews')) {
             return redirect()->route('mock-interview')->withErrors(['plan' => $message]);
+        }
+
+        if (! $user->latestProcessedCv) {
+            return redirect()->route('mock-interview')->withErrors([
+                'cv' => 'Upload and review a CV before starting a mock interview. Questions are generated from your CV.',
+            ]);
         }
 
         $validated = $request->validate([
@@ -52,25 +62,13 @@ class MockInterviewController extends Controller
             'mode' => 'required|in:text,voice',
         ]);
 
-        // Generate questions using AI
-        try {
-            $questions = $aiService->generateQuestions(
-                $validated['type'],
-                $validated['difficulty'],
-                5 // Number of questions
-            );
-        } catch (\Exception $e) {
-            // If AI fails, questions will be generated on the frontend
-            $questions = null;
-        }
-
         $session = MockInterviewSession::create([
-            'user_id' => Auth::id(),
+            'user_id' => $user->id,
             'type' => $validated['type'],
             'difficulty' => $validated['difficulty'],
             'mode' => $validated['mode'],
             'status' => 'pending',
-            'questions' => $questions,
+            'questions' => $questions->generate($user, $validated['type'], $validated['difficulty']),
             'started_at' => now(),
         ]);
 
@@ -90,24 +88,25 @@ class MockInterviewController extends Controller
             'answers' => 'nullable|array',
         ]);
 
+        $session->loadMissing('user.latestProcessedCv');
+
         $answers = array_merge($session->answers ?? [], $validated['answers'] ?? [
             $validated['question'] => $validated['answer'],
         ]);
         $questions = array_values($session->questions ?? []);
-        $followUpCount = collect($questions)->filter(function ($question) {
-            if (is_array($question)) {
-                return (bool) ($question['follow_up'] ?? false);
-            }
-
-            return str_starts_with((string) $question, 'Follow-up:');
-        })->count();
+        $followUpCount = collect($questions)->where('follow_up', true)->count();
+        $alreadyClarified = collect($questions)->contains(
+            fn ($question) => is_array($question) && ($question['parent'] ?? null) === $validated['question']
+        );
 
         $followUp = null;
-        if ($followUpCount < 3) {
+        if ($followUpCount < 3 && ! $alreadyClarified) {
+            $roleTitle = $session->user?->latestProcessedCv?->extraction['experience'][0]['title'] ?? null;
             $followUp = $aiService->generateFollowUpQuestion(
                 $validated['question'],
                 $validated['answer'],
                 $session->difficulty,
+                is_string($roleTitle) ? $roleTitle : null,
             );
         }
 
@@ -124,6 +123,7 @@ class MockInterviewController extends Controller
             }
 
             array_splice($questions, $insertAt, 0, [[
+                'category' => 'follow_up',
                 'text' => $followUp,
                 'follow_up' => true,
                 'parent' => $validated['question'],
@@ -140,7 +140,7 @@ class MockInterviewController extends Controller
         return redirect()->route('mock-interview.session', $session);
     }
 
-    public function session(MockInterviewSession $session): Response
+    public function session(MockInterviewSession $session, MockInterviewQuestionService $questionService): Response
     {
         if ($session->user_id !== Auth::id()) {
             abort(403);
@@ -150,7 +150,14 @@ class MockInterviewController extends Controller
         if ($session->status === 'pending') {
             $session->update([
                 'status' => 'in_progress',
-                'started_at' => now(),
+                'started_at' => $session->started_at ?? now(),
+            ]);
+        }
+
+        if (($session->questions ?? []) === []) {
+            $session->loadMissing('user.latestProcessedCv');
+            $session->update([
+                'questions' => $questionService->generate($session->user, $session->type, $session->difficulty),
             ]);
         }
 
@@ -160,7 +167,7 @@ class MockInterviewController extends Controller
             : 'job-seeker/MockInterviewSession';
 
         return Inertia::render($viewName, [
-            'session' => $session,
+            'session' => $session->fresh(),
         ]);
     }
 
@@ -172,6 +179,7 @@ class MockInterviewController extends Controller
 
         $validated = $request->validate([
             'answers' => 'nullable|array',
+            'conversation_history' => 'nullable|array',
             'feedback' => 'nullable|array',
             'score' => 'nullable|numeric|min:0|max:100',
             'status' => 'nullable|in:pending,in_progress,completed,cancelled',

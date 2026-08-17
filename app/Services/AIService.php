@@ -83,18 +83,18 @@ class AIService
             ->map(fn (int $count, string $category) => "{$count} {$labels[$category]} questions (key \"{$category}\")")
             ->implode(', ');
 
-        $systemPrompt = "You are an expert technical interviewer. In a SINGLE response, generate the complete interview question set for a {$difficultyLabels[$difficulty]} candidate. Do not generate extra questions later. Return ONLY valid JSON with this exact shape: {\"technical\": [\"...\"], \"behavioral\": [\"...\"], \"scenario\": [\"...\"], \"cv\": [\"...\"]}. Include only the keys that were requested, with exactly the requested counts. No markdown.";
+        $systemPrompt = "You are an expert technical interviewer. In a SINGLE response, generate the complete interview question set for a {$difficultyLabels[$difficulty]} candidate. Do not generate extra questions later. Return ONLY valid JSON with this exact shape: {\"technical\": [\"...\"], \"behavioral\": [\"...\"], \"scenario\": [\"...\"], \"cv\": [\"...\"]}. Include only the keys that were requested, with exactly the requested counts. CV questions MUST name specific companies, roles, projects, or skills from the candidate background. Technical questions should use the candidate's listed stack. No generic prompts like \"tell me about a project\" when named items exist. No markdown.";
 
-        $userPrompt = "Generate the full interview now: {$spec}. Questions must be specific to the role and candidate when context is provided. Return the complete set in this one response.\n{$context}";
+        $userPrompt = "Generate the full interview now: {$spec}. Ground every question in the role and CV context below. Return the complete set in this one response.\n{$context}";
 
         try {
-            $response = $this->makeRequest($systemPrompt, $userPrompt, 1024, true);
+            $response = $this->makeRequest($systemPrompt, $userPrompt, 2048, true);
             $content = $this->responseText($response);
 
             if ($content !== null) {
-                $decoded = json_decode($this->stripMarkdown($content), true);
+                $decoded = $this->decodeJsonObject($content);
 
-                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                if (is_array($decoded)) {
                     return $this->flattenCategorizedQuestions($decoded, $requested);
                 }
             }
@@ -986,18 +986,35 @@ Keep your responses natural and conversational.";
         $questions = [];
 
         foreach ($requested as $category => $count) {
-            $items = $grouped[$category] ?? [];
-            if (! is_array($items) || $items === []) {
-                $items = $this->getDefaultCategorizedQuestions('intermediate')[$category] ?? [];
+            $items = [];
+            foreach ($grouped[$category] ?? [] as $text) {
+                if (is_string($text) && $text !== '') {
+                    $items[] = $text;
+                }
+            }
+
+            $defaults = $this->getDefaultCategorizedQuestions('intermediate')[$category] ?? [];
+            foreach ($defaults as $text) {
+                if (count($items) >= $count) {
+                    break;
+                }
+                if (is_string($text) && $text !== '' && ! in_array($text, $items, true)) {
+                    $items[] = $text;
+                }
+            }
+
+            $source = $items !== [] ? $items : array_values(array_filter($defaults, fn ($text) => is_string($text) && $text !== ''));
+            $index = 0;
+            while (count($items) < $count && $source !== []) {
+                $items[] = $source[$index % count($source)];
+                $index++;
             }
 
             foreach (array_slice($items, 0, $count) as $text) {
-                if (is_string($text) && $text !== '') {
-                    $questions[] = [
-                        'category' => $category,
-                        'text' => $text,
-                    ];
-                }
+                $questions[] = [
+                    'category' => $category,
+                    'text' => $text,
+                ];
             }
         }
 

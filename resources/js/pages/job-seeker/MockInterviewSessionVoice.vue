@@ -6,9 +6,11 @@ import { mockInterview } from '@/routes';
 import mockInterviewRoutes from '@/routes/mock-interview';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/vue3';
-import { Play, CheckCircle2, Mic, Volume2, MicOff } from 'lucide-vue-next';
-import { ref, onMounted, onUnmounted } from 'vue';
+import { CheckCircle2, Mic, MicOff, Play, Volume2 } from 'lucide-vue-next';
+import { computed, onUnmounted, ref } from 'vue';
 import { useGoogleTts } from '@/composables/useGoogleTts';
+
+type InterviewQuestion = string | { category?: string; text: string; follow_up?: boolean };
 
 const props = defineProps<{
     session?: {
@@ -17,6 +19,8 @@ const props = defineProps<{
         difficulty: string;
         mode: string;
         status: string;
+        questions?: InterviewQuestion[];
+        answers?: Record<string, string>;
         conversation_history?: Array<{
             role: string;
             content: string;
@@ -39,488 +43,411 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const conversationHistory = ref<Array<{ role: string; content: string; timestamp?: string }>>(
-    props.session?.conversation_history || []
-);
+const questionText = (question: InterviewQuestion): string => {
+    return typeof question === 'string' ? question : question.text;
+};
+
+const questionCategory = (question: InterviewQuestion | null): string | null => {
+    if (!question || typeof question === 'string') {
+        return null;
+    }
+
+    return question.category || null;
+};
+
+const questions = ref<InterviewQuestion[]>([...(props.session?.questions || [])]);
+const answers = ref<Record<string, string>>({ ...(props.session?.answers || {}) });
+const conversationHistory = ref(props.session?.conversation_history || []);
+const currentIndex = ref(0);
+const started = ref(false);
 const isListening = ref(false);
 const isProcessing = ref(false);
-const recognition: any = ref(null);
-const transcribedText = ref<string>('');
-const waitingForUser = ref(false);
+const waitingForAnswer = ref(false);
+const paused = ref(false);
+const typedFallback = ref('');
+const committedText = ref('');
+const interimText = ref('');
+const speechSupported = ref(true);
 
-const { isSpeaking, ttsActivated, activateTTS, speakText: playSpeech, stopSpeaking: stopTts } = useGoogleTts(
+const transcribedText = computed(() => `${committedText.value} ${interimText.value}`.replace(/\s+/g, ' ').trim());
+const wordCount = computed(() => transcribedText.value.split(/\s+/).filter(Boolean).length);
+
+const currentQuestion = computed(() => questions.value[currentIndex.value] ?? null);
+const currentText = computed(() => (currentQuestion.value ? questionText(currentQuestion.value) : ''));
+const totalQuestions = computed(() => questions.value.length);
+const isLastQuestion = computed(() => currentIndex.value >= totalQuestions.value - 1);
+const answeredCount = computed(() => Object.values(answers.value).filter((value) => value.trim() !== '').length);
+
+const { isSpeaking, activateTTS, speakText: playSpeech, stopSpeaking: stopTts } = useGoogleTts(
     `/mock-interview/${props.session?.id}/speech`,
 );
 
-// Initialize Speech Recognition
+let recognition: any = null;
+let silenceTimer: number | null = null;
+let restartTimer: number | null = null;
+const SILENCE_MS = 5000;
+const MIN_AUTO_SUBMIT_WORDS = 12;
+
+const getTypeLabel = (type: string) => {
+    const labels: Record<string, string> = {
+        technical: 'Technical',
+        behavioral: 'Behavioral',
+        mixed: 'Mixed',
+    };
+    return labels[type] || type;
+};
+
+const clearSilenceTimer = () => {
+    if (silenceTimer) {
+        window.clearTimeout(silenceTimer);
+        silenceTimer = null;
+    }
+};
+
+const clearRestartTimer = () => {
+    if (restartTimer) {
+        window.clearTimeout(restartTimer);
+        restartTimer = null;
+    }
+};
+
 const initSpeechRecognition = () => {
-    if (typeof window !== 'undefined') {
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognitionApi = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-        if (!SpeechRecognition) {
-            alert('Speech recognition is not supported in your browser. Please use Chrome or Edge.');
+    if (!SpeechRecognitionApi) {
+        speechSupported.value = false;
+        return;
+    }
+
+    recognition = new SpeechRecognitionApi();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = (event: any) => {
+        let interim = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript.trim();
+            if (!transcript) {
+                continue;
+            }
+
+            if (event.results[i].isFinal) {
+                committedText.value = `${committedText.value} ${transcript}`.replace(/\s+/g, ' ').trim();
+            } else {
+                interim += ` ${transcript}`;
+            }
+        }
+
+        interimText.value = interim.trim();
+        armSilenceTimer();
+    };
+
+    recognition.onerror = (event: any) => {
+        if (event.error === 'no-speech' || event.error === 'aborted') {
+            return;
+        }
+        isListening.value = false;
+    };
+
+    recognition.onend = () => {
+        isListening.value = false;
+
+        if (
+            waitingForAnswer.value &&
+            !paused.value &&
+            started.value &&
+            !isProcessing.value &&
+            !isSpeaking.value
+        ) {
+            clearRestartTimer();
+            restartTimer = window.setTimeout(() => startListening(), 300);
+        }
+    };
+};
+
+const armSilenceTimer = () => {
+    clearSilenceTimer();
+    silenceTimer = window.setTimeout(() => {
+        if (!waitingForAnswer.value || isProcessing.value || isSpeaking.value) {
             return;
         }
 
-        recognition.value = new SpeechRecognition();
-        recognition.value.continuous = false;
-        recognition.value.interimResults = true;
-        recognition.value.lang = 'en-US';
-
-        recognition.value.onresult = (event: any) => {
-            let interimTranscript = '';
-            let finalTranscript = '';
-
-            for (let i = event.resultIndex; i < event.results.length; i++) {
-                const transcript = event.results[i][0].transcript;
-                if (event.results[i].isFinal) {
-                    finalTranscript += transcript + ' ';
-                } else {
-                    interimTranscript += transcript;
-                }
-            }
-
-            transcribedText.value = finalTranscript || interimTranscript;
-        };
-
-        recognition.value.onerror = (event: any) => {
-            console.error('Speech recognition error:', event.error);
-            isListening.value = false;
-            if (event.error === 'no-speech') {
-                // Restart if no speech detected
-                setTimeout(() => {
-                    if (waitingForUser.value) {
-                        startListening();
-                    }
-                }, 500);
-            }
-        };
-
-        recognition.value.onend = () => {
-            console.log('🎤 Recognition ended', {
-                hasTranscript: !!transcribedText.value.trim(),
-                transcript: transcribedText.value,
-                waitingForUser: waitingForUser.value
-            });
-
-            isListening.value = false;
-
-            // If we got final transcript, process it
-            if (transcribedText.value.trim() && waitingForUser.value) {
-                processUserMessage(transcribedText.value.trim());
-            } else if (waitingForUser.value && !transcribedText.value.trim()) {
-                // If no speech detected but we're waiting, restart listening
-                console.log('🔄 No speech detected, restarting listening...');
-                setTimeout(() => {
-                    if (waitingForUser.value && !isProcessing.value) {
-                        startListening();
-                    }
-                }, 500);
-            }
-        };
-    }
+        if (wordCount.value >= MIN_AUTO_SUBMIT_WORDS) {
+            void submitAnswer(transcribedText.value);
+        }
+    }, SILENCE_MS);
 };
 
-const speakText = (text: string) => {
+const speakThenListen = (text: string) => {
+    waitingForAnswer.value = false;
+    committedText.value = '';
+    interimText.value = '';
+    typedFallback.value = '';
+    clearSilenceTimer();
     playSpeech(text, () => {
-        waitingForUser.value = true;
-        setTimeout(() => {
-            if (waitingForUser.value && !isProcessing.value && !isListening.value && !isSpeaking.value) {
-                startListening();
-            }
-        }, 400);
+        waitingForAnswer.value = true;
+        startListening();
     });
 };
 
-const stopSpeaking = () => {
-    stopTts();
-    waitingForUser.value = false;
-};
-
-// Start listening for voice input
 const startListening = () => {
-    console.log('🎤 startListening() called', {
-        hasRecognition: !!recognition.value,
-        isListening: isListening.value,
-        isSpeaking: isSpeaking.value,
-        isProcessing: isProcessing.value
-    });
-
-    // Initialize if needed
-    if (!recognition.value) {
-        console.log('🔧 Initializing speech recognition...');
-        initSpeechRecognition();
-
-        // If still not initialized, it's not supported
-        if (!recognition.value) {
-            console.error('❌ Speech recognition not available');
-            return;
-        }
-    }
-
-    // Check conditions
-    if (!recognition.value) {
-        console.warn('⚠️ Recognition not available');
+    if (!recognition || isListening.value || isSpeaking.value || isProcessing.value || !started.value || !waitingForAnswer.value) {
         return;
     }
 
-    if (isListening.value) {
-        console.log('⚠️ Already listening');
-        return;
-    }
-
-    if (isSpeaking.value) {
-        console.log('⚠️ Cannot start listening while speaking');
-        return;
-    }
-
-    if (isProcessing.value) {
-        console.log('⚠️ Cannot start listening while processing');
-        return;
-    }
+    paused.value = false;
+    interimText.value = '';
+    isListening.value = true;
 
     try {
-        transcribedText.value = '';
-        isListening.value = true;
-        recognition.value.start();
-        console.log('✅ Speech recognition started');
-    } catch (error: any) {
-        console.error('❌ Error starting speech recognition:', error);
+        recognition.start();
+    } catch {
         isListening.value = false;
+    }
+};
 
-        // If error is "already started", try stopping first
-        if (error.message?.includes('already') || error.message?.includes('started')) {
-            try {
-                recognition.value.stop();
-                setTimeout(() => {
-                    isListening.value = true;
-                    recognition.value.start();
-                }, 100);
-            } catch (retryError) {
-                console.error('❌ Retry failed:', retryError);
-            }
+const pauseListening = () => {
+    paused.value = true;
+    clearRestartTimer();
+    clearSilenceTimer();
+    if (recognition && isListening.value) {
+        try {
+            recognition.stop();
+        } catch {
+            // Already stopped.
         }
     }
+    isListening.value = false;
 };
 
-// Stop listening
 const stopListening = () => {
-    if (recognition.value && isListening.value) {
-        recognition.value.stop();
-        isListening.value = false;
-    }
+    waitingForAnswer.value = false;
+    pauseListening();
 };
 
-// Process user message and get AI response
-const processUserMessage = async (message: string) => {
-    if (!message.trim() || isProcessing.value) return;
+const toggleMic = () => {
+    if (isListening.value) {
+        pauseListening();
+        return;
+    }
+
+    waitingForAnswer.value = true;
+    startListening();
+};
+
+const finishAnswering = () => {
+    const spoken = transcribedText.value || typedFallback.value;
+    if (spoken.trim().length < 2) {
+        return;
+    }
+    void submitAnswer(spoken);
+};
+
+const speakCurrentQuestion = () => {
+    if (!currentText.value) {
+        return;
+    }
+
+    const category = questionCategory(currentQuestion.value);
+    const prefix = category ? `This is a ${category.replace('_', ' ')} question. ` : '';
+    speakThenListen(`${prefix}${currentText.value}`);
+};
+
+const startInterview = () => {
+    activateTTS();
+
+    if (!recognition) {
+        initSpeechRecognition();
+    }
+
+    started.value = true;
+    const firstUnanswered = questions.value.findIndex((question) => !answers.value[questionText(question)]?.trim());
+    currentIndex.value = firstUnanswered === -1 ? 0 : firstUnanswered;
+
+    const intro = `Welcome to your ${getTypeLabel(props.session?.type || '')} mock interview. I will ask ${totalQuestions.value} questions generated from your CV. Please answer out loud after each one. Let's begin.`;
+    playSpeech(intro, () => speakCurrentQuestion());
+};
+
+const submitAnswer = async (message: string) => {
+    const question = currentText.value;
+    const answer = message.trim();
+
+    if (!question || answer.length < 2 || isProcessing.value) {
+        return;
+    }
 
     isProcessing.value = true;
+    waitingForAnswer.value = false;
     stopListening();
-    waitingForUser.value = false;
+    stopTts();
+    typedFallback.value = '';
+    committedText.value = '';
+    interimText.value = '';
+    answers.value[question] = answer;
+    conversationHistory.value = [
+        ...conversationHistory.value,
+        { role: 'assistant', content: question, timestamp: new Date().toISOString() },
+        { role: 'user', content: answer, timestamp: new Date().toISOString() },
+    ];
 
-    // Add user message to conversation
-    conversationHistory.value.push({
-        role: 'user',
-        content: message,
-        timestamp: new Date().toISOString(),
-    });
-
-    try {
-        // Use direct URL construction to avoid route helper issues
-        const conversationUrl = `/mock-interview/${props.session?.id}/conversation`;
-
-        router.post(
-            conversationUrl,
-            { user_message: message },
-            {
-                preserveState: false,
-                preserveScroll: true,
-                onSuccess: (page) => {
-                    const props = (page.props as any);
-                    const updatedSession = props?.session;
-
-                    if (updatedSession?.conversation_history) {
-                        conversationHistory.value = updatedSession.conversation_history;
-
-                        // Get the latest AI message and speak it
-                        const lastMessage = conversationHistory.value[conversationHistory.value.length - 1];
-                        if (lastMessage && lastMessage.role === 'assistant' && lastMessage.content) {
-                            console.log('AI response to speak:', lastMessage.content.substring(0, 50));
-                            setTimeout(() => speakText(lastMessage.content), 100);
-                        } else {
-                            console.warn('No assistant message content found');
-                        }
-                    } else if (props?.ai_response) {
-                        // Add AI response if it's in props
-                        conversationHistory.value.push({
-                            role: 'assistant',
-                            content: props.ai_response,
-                            timestamp: new Date().toISOString(),
-                        });
-                        console.log('AI response to speak (from props):', props.ai_response.substring(0, 50));
-                        setTimeout(() => speakText(props.ai_response), 100);
-                    } else {
-                        // Reload the session if needed
-                        router.reload({
-                            only: ['session'],
-                            onSuccess: (reloadPage) => {
-                                const session = (reloadPage.props as any)?.session;
-                                if (session?.conversation_history) {
-                                    conversationHistory.value = session.conversation_history;
-                                    const lastMessage = conversationHistory.value[conversationHistory.value.length - 1];
-                                    if (lastMessage && lastMessage.role === 'assistant' && lastMessage.content) {
-                                        setTimeout(() => speakText(lastMessage.content), 100);
-                                    }
-                                }
-                            },
-                        });
-                    }
-
-                    isProcessing.value = false;
-                    transcribedText.value = '';
-                },
-                onError: () => {
-                    const errorMessage = 'I apologize, but I encountered an error. Could you please repeat that?';
-                    conversationHistory.value.push({
-                        role: 'assistant',
-                        content: errorMessage,
-                        timestamp: new Date().toISOString(),
-                    });
-                    setTimeout(() => speakText(errorMessage), 100);
-                    isProcessing.value = false;
-                    transcribedText.value = '';
-                },
-            }
-        );
-    } catch (error) {
-        console.error('Error processing conversation:', error);
-        const errorMessage = 'I apologize, but I encountered an error. Could you please repeat that?';
-        conversationHistory.value.push({
-            role: 'assistant',
-            content: errorMessage,
-            timestamp: new Date().toISOString(),
-        });
-        setTimeout(() => speakText(errorMessage), 100);
-        isProcessing.value = false;
-        transcribedText.value = '';
-    }
-};
-
-// Complete interview
-const completeInterview = () => {
-    stopSpeaking();
-    stopListening();
-    waitingForUser.value = false;
-
-    router.put(
-        mockInterviewRoutes.update(props.session?.id || 0).url,
+    router.post(
+        `/mock-interview/${props.session?.id}/follow-up`,
         {
-            conversation_history: conversationHistory.value,
-            status: 'completed',
+            question,
+            answer,
+            answers: answers.value,
         },
         {
-            onSuccess: () => {
-                router.visit(mockInterview().url);
+            preserveState: true,
+            preserveScroll: true,
+            onSuccess: (page) => {
+                const updated = (page.props as { session?: { questions?: InterviewQuestion[]; answers?: Record<string, string> } }).session;
+                if (updated?.questions) {
+                    questions.value = updated.questions;
+                }
+                if (updated?.answers) {
+                    answers.value = { ...updated.answers };
+                }
+
+                isProcessing.value = false;
+
+                if (isLastQuestion.value) {
+                    void completeInterview();
+                    return;
+                }
+
+                currentIndex.value += 1;
+                speakCurrentQuestion();
             },
-        }
+            onError: () => {
+                isProcessing.value = false;
+                if (!isLastQuestion.value) {
+                    currentIndex.value += 1;
+                    speakCurrentQuestion();
+                    return;
+                }
+                void completeInterview();
+            },
+        },
     );
 };
 
-// Load initial conversation or get initial message
-const initializeConversation = async () => {
-    if (conversationHistory.value.length === 0) {
-        // Use direct URL construction if route helper doesn't exist
-        const initialUrl = `/mock-interview/${props.session?.id}/initial`;
+const completeInterview = () => {
+    stopTts();
+    stopListening();
+    started.value = false;
+    isProcessing.value = true;
 
-        router.get(
-            initialUrl,
-            {},
-            {
-                preserveState: false,
-                preserveScroll: true,
-                onSuccess: (page: any) => {
-                    const session = (page.props as any)?.session;
-                    if (session?.conversation_history) {
-                        conversationHistory.value = session.conversation_history;
-
-                        // Speak the initial message
-                        const lastMessage = conversationHistory.value[conversationHistory.value.length - 1];
-                        if (lastMessage && lastMessage.role === 'assistant' && lastMessage.content) {
-                            console.log('Initial message to speak:', lastMessage.content.substring(0, 50));
-                            // Small delay to ensure TTS is ready
-                            setTimeout(() => {
-                                speakText(lastMessage.content);
-                            }, 200);
-                        } else {
-                            console.warn('No assistant message found in conversation history');
-                        }
-                    } else if ((page.props as any)?.conversation_history) {
-                        conversationHistory.value = (page.props as any).conversation_history;
-
-                        // Speak the initial message
-                        const lastMessage = conversationHistory.value[conversationHistory.value.length - 1];
-                        if (lastMessage && lastMessage.role === 'assistant' && lastMessage.content) {
-                            console.log('Initial message to speak (from props):', lastMessage.content.substring(0, 50));
-                            setTimeout(() => {
-                                speakText(lastMessage.content);
-                            }, 200);
-                        }
-                    } else {
-                        console.warn('No conversation history found in response');
-                    }
-                },
-                onError: () => {
-                    console.error('Error loading initial conversation');
-                },
-            }
-        );
-    } else {
-        // Continue existing conversation - speak the last AI message if exists
-        const lastMessage = conversationHistory.value[conversationHistory.value.length - 1];
-        if (lastMessage && lastMessage.role === 'assistant' && lastMessage.content) {
-            setTimeout(() => {
-                speakText(lastMessage.content);
-            }, 200);
-        }
-    }
+    router.put(mockInterviewRoutes.update(props.session?.id || 0).url, {
+        answers: answers.value,
+        conversation_history: conversationHistory.value,
+        status: 'completed',
+    });
 };
 
-// Cleanup on unmount
 onUnmounted(() => {
-    stopSpeaking();
+    waitingForAnswer.value = false;
+    stopTts();
     stopListening();
-    if (recognition.value) {
-        recognition.value.abort();
-    }
-});
-
-onMounted(() => {
-    initSpeechRecognition();
+    recognition?.abort();
 });
 </script>
 
 <template>
-    <Head title="Voice Mock Interview Session" />
+    <Head title="Mock Voice Interview" />
 
     <AppLayout :breadcrumbs="breadcrumbs">
         <div class="flex h-full flex-1 flex-col gap-6 p-6">
-            <!-- Session Header -->
-            <div class="flex items-center justify-between">
+            <div class="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <h1 class="text-3xl font-bold tracking-tight">Voice Interview</h1>
+                    <h1 class="text-3xl font-bold tracking-tight">{{ getTypeLabel(session?.type || '') }} mock interview</h1>
                     <p class="text-muted-foreground mt-2">
-                        Have a natural conversation with the AI interviewer
+                        {{ session?.difficulty }} · {{ totalQuestions }} CV-based questions · voice assistant
                     </p>
                 </div>
-                <div class="flex items-center gap-2">
-                    <span v-if="isListening" class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium animate-pulse">
-                        🎤 Listening...
-                    </span>
-                    <span v-else-if="isSpeaking" class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                        🔊 Speaking...
-                    </span>
-                    <span v-else-if="isProcessing" class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium">
-                        ⏳ Processing...
-                    </span>
-                </div>
+                <span v-if="started" class="dash-badge dash-badge-in_progress">
+                    Question {{ Math.min(currentIndex + 1, totalQuestions) }} of {{ totalQuestions }}
+                </span>
             </div>
 
-            <!-- Conversation Card -->
-            <Card class="shadow-sm flex-1 flex flex-col">
+            <Card class="flex flex-1 flex-col shadow-sm">
                 <CardHeader>
                     <CardTitle class="flex items-center gap-2">
                         <Volume2 class="h-5 w-5" />
-                        Interview Conversation
+                        AI voice interviewer
                     </CardTitle>
                     <CardDescription>
-                        Speak naturally - the AI interviewer will respond to your answers
+                        The assistant asks the prepared CV questions out loud. Keep talking until you are finished, then click I’m done.
                     </CardDescription>
                 </CardHeader>
-                <CardContent class="flex-1 flex flex-col space-y-4">
-                    <!-- Conversation Messages -->
-                    <div class="flex-1 overflow-y-auto space-y-4 pb-4 min-h-[400px]">
-                        <div
-                            v-for="(message, index) in conversationHistory"
-                            :key="index"
-                            class="flex"
-                            :class="message.role === 'user' ? 'justify-end' : 'justify-start'"
-                        >
-                            <div
-                                class="max-w-[80%] rounded-lg px-4 py-2"
-                                :class="message.role === 'user'
-                                    ? 'bg-primary text-primary-foreground'
-                                    : 'bg-secondary text-secondary-foreground'"
-                            >
-                                <p class="text-sm whitespace-pre-wrap">{{ message.content }}</p>
-                                <p v-if="message.timestamp" class="text-xs opacity-70 mt-1">
-                                    {{ new Date(message.timestamp).toLocaleTimeString() }}
-                                </p>
-                            </div>
-                        </div>
-
-                        <!-- Current transcription (interim) -->
-                        <div v-if="transcribedText && isListening" class="flex justify-end">
-                            <div class="max-w-[80%] rounded-lg px-4 py-2 bg-primary/50 text-primary-foreground">
-                                <p class="text-sm italic">{{ transcribedText }}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Start Interview Button (shows if TTS not activated) -->
-                    <div v-if="!ttsActivated && conversationHistory.length === 0" class="border-t pt-6 text-center">
-                        <p class="text-sm text-muted-foreground mb-4">
-                            Start to hear the interviewer with Google text-to-speech.
+                <CardContent class="flex flex-1 flex-col space-y-5">
+                    <div v-if="!started" class="flex flex-1 flex-col items-center justify-center gap-4 py-10 text-center">
+                        <p class="max-w-md text-sm text-muted-foreground">
+                            The interviewer will speak {{ totalQuestions }} questions generated from your CV. Allow the microphone, then start.
                         </p>
-                        <Button
-                            size="lg"
-                            @click="activateTTS(); initializeConversation()"
-                            class="gap-2"
-                        >
+                        <Button size="lg" class="gap-2" @click="startInterview">
                             <Play class="h-5 w-5" />
-                            Start Interview
+                            Start voice interview
                         </Button>
                     </div>
 
-                    <!-- Voice Input Controls -->
-                    <div class="border-t pt-4">
+                    <template v-else>
+                        <div class="rounded-2xl border border-border bg-secondary/40 p-5">
+                            <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                {{ questionCategory(currentQuestion) || 'Question' }}
+                                <span v-if="typeof currentQuestion !== 'string' && currentQuestion?.follow_up"> · Follow-up</span>
+                            </p>
+                            <p class="mt-2 text-lg font-medium">{{ currentText }}</p>
+                        </div>
+
                         <div class="flex items-center gap-4">
                             <Button
                                 :variant="isListening ? 'destructive' : 'default'"
                                 size="lg"
-                                class="rounded-full w-16 h-16 flex-shrink-0"
-                                :disabled="isSpeaking || isProcessing || !ttsActivated"
-                                @click="() => { if (!ttsActivated) { activateTTS(); } isListening ? stopListening() : startListening(); }"
+                                class="h-16 w-16 flex-shrink-0 rounded-full"
+                                :disabled="isSpeaking || isProcessing"
+                                @click="toggleMic"
                             >
                                 <Mic v-if="!isListening" class="h-6 w-6" />
                                 <MicOff v-else class="h-6 w-6" />
                             </Button>
-
-                            <div class="flex-1">
-                                <p v-if="isListening" class="text-sm font-medium text-primary animate-pulse">
-                                    🎤 Listening... Speak now
+                            <div>
+                                <p v-if="isSpeaking" class="text-sm text-muted-foreground">The interviewer is speaking…</p>
+                                <p v-else-if="isListening" class="animate-pulse text-sm font-medium text-primary">
+                                    Listening… take your time. Click I’m done when you have finished.
                                 </p>
-                                <p v-else-if="isSpeaking" class="text-sm text-muted-foreground">
-                                    🔊 AI is speaking...
-                                </p>
-                                <p v-else-if="isProcessing" class="text-sm text-muted-foreground">
-                                    ⏳ Processing your response...
-                                </p>
-                                <p v-else class="text-sm text-muted-foreground">
-                                    Click the microphone to start speaking
-                                </p>
+                                <p v-else-if="isProcessing" class="text-sm text-muted-foreground">Saving your answer and preparing the next question…</p>
+                                <p v-else class="text-sm text-muted-foreground">Click the microphone to keep answering, then I’m done.</p>
+                                <p v-if="transcribedText" class="mt-1 text-sm italic">{{ transcribedText }}</p>
                             </div>
+                        </div>
 
-                            <Button
-                                variant="outline"
-                                @click="completeInterview"
-                                :disabled="isListening || isSpeaking || isProcessing"
-                            >
+                        <Button
+                            size="lg"
+                            :disabled="(!transcribedText && typedFallback.trim().length < 2) || isProcessing || isSpeaking"
+                            @click="finishAnswering"
+                        >
+                            I’m done answering
+                        </Button>
+
+                        <div class="grid gap-2">
+                            <textarea
+                                v-model="typedFallback"
+                                class="border-input bg-background min-h-[90px] w-full rounded-md border px-3 py-2 text-sm"
+                                :placeholder="speechSupported ? 'Or type your answer if the microphone misses you' : 'Type your answer and submit'"
+                            />
+                        </div>
+
+                        <div class="mt-auto flex items-center justify-between border-t pt-4">
+                            <p class="text-xs text-muted-foreground">{{ answeredCount }} of {{ totalQuestions }} answered</p>
+                            <Button variant="outline" :disabled="isSpeaking || isProcessing" @click="completeInterview">
                                 <CheckCircle2 class="mr-2 h-4 w-4" />
-                                End Interview
+                                End interview
                             </Button>
                         </div>
-                    </div>
+                    </template>
                 </CardContent>
             </Card>
         </div>

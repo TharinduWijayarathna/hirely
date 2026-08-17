@@ -10,7 +10,7 @@ import { Head, router, usePage } from '@inertiajs/vue3';
 import { CheckCircle2, ArrowRight, ArrowLeft, Mic, Loader2 } from 'lucide-vue-next';
 import { ref, computed, watch } from 'vue';
 
-type InterviewQuestion = string | { text: string; follow_up?: boolean };
+type InterviewQuestion = string | { category?: string; text: string; follow_up?: boolean };
 
 const props = defineProps<{
     session?: {
@@ -52,69 +52,15 @@ const questionText = (question?: InterviewQuestion): string => {
     return typeof question === 'string' ? question : question.text;
 };
 
-// Sample questions based on type (in a real app, these would come from an AI service or database)
-const sampleQuestions: Record<string, Record<string, string[]>> = {
-    technical: {
-        beginner: [
-            'What is the difference between a variable and a constant?',
-            'Explain what a function is in programming.',
-            'What is the purpose of an if statement?',
-        ],
-        intermediate: [
-            'Explain the difference between REST and GraphQL APIs.',
-            'What is the difference between SQL JOIN types?',
-            'How does garbage collection work in programming languages?',
-        ],
-        advanced: [
-            'Explain the trade-offs between microservices and monolithic architecture.',
-            'How would you design a distributed caching system?',
-            'Explain the CAP theorem and its implications.',
-        ],
-    },
-    behavioral: {
-        beginner: [
-            'Tell me about yourself.',
-            'Why are you interested in this role?',
-            'What are your greatest strengths?',
-        ],
-        intermediate: [
-            'Describe a time when you had to work under pressure.',
-            'Tell me about a challenge you faced and how you overcame it.',
-            'Give an example of when you worked effectively in a team.',
-        ],
-        advanced: [
-            'Describe a situation where you had to make a difficult decision with limited information.',
-            'Tell me about a time you had to convince others of your idea.',
-            'Describe a conflict you resolved in a professional setting.',
-        ],
-    },
-    mixed: {
-        beginner: [
-            'What is your biggest technical achievement?',
-            'How do you approach learning new technologies?',
-            'Describe a project you are proud of.',
-        ],
-        intermediate: [
-            'How do you balance technical requirements with business needs?',
-            'Describe your experience with agile development.',
-            'How do you handle technical debt in your projects?',
-        ],
-        advanced: [
-            'Describe a complex technical problem you solved and the approach you took.',
-            'How do you mentor junior developers?',
-            'Explain a time you had to make a technical decision that affected the entire team.',
-        ],
-    },
+const questionCategory = (question?: InterviewQuestion): string | null => {
+    if (!question || typeof question === 'string') {
+        return null;
+    }
+
+    return question.category || null;
 };
 
-const questions = computed(() => {
-    if (props.session?.questions && props.session.questions.length > 0) {
-        return props.session.questions;
-    }
-    // Generate sample questions if not provided
-    const typeQuestions = sampleQuestions[props.session?.type || 'mixed'];
-    return typeQuestions?.[props.session?.difficulty || 'intermediate'] || [];
-});
+const questions = computed(() => props.session?.questions || []);
 
 const currentQuestion = computed(() => questions.value[currentQuestionIndex.value]);
 const currentText = computed(() => questionText(currentQuestion.value));
@@ -221,7 +167,7 @@ const completeInterview = () => {
                         {{ getTypeLabel(session?.type || '') }} Interview
                     </h1>
                     <p class="text-muted-foreground mt-2">
-                        {{ getDifficultyLabel(session?.difficulty || '') }} Level
+                        {{ getDifficultyLabel(session?.difficulty || '') }} · {{ totalQuestions }} questions from your CV
                     </p>
                 </div>
                 <div class="flex items-center gap-2">
@@ -239,13 +185,16 @@ const completeInterview = () => {
                         Interview Question
                     </CardTitle>
                     <CardDescription>
-                        {{ isFollowUp ? 'Follow-up based on your previous answer' : 'Take your time to think and provide a thoughtful answer' }}
+                        {{ isFollowUp ? 'Follow-up based on your previous answer' : 'These questions were generated from your CV in one pass' }}
                     </CardDescription>
                 </CardHeader>
                 <CardContent class="space-y-6">
                     <!-- Current Question -->
                     <div>
-                        <Label class="mb-2 block text-base font-semibold">Question:</Label>
+                        <Label class="mb-2 block text-base font-semibold">
+                            {{ questionCategory(currentQuestion) || 'Question' }}
+                            <span v-if="isFollowUp"> · Follow-up</span>
+                        </Label>
                         <p class="text-lg">{{ currentText }}</p>
                     </div>
 

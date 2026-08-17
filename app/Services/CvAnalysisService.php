@@ -59,17 +59,24 @@ class CvAnalysisService
         return $document->fresh();
     }
 
-    public function scoreAgainstJob(User $user, string $jobDescription, ?int $jobId = null): AtsAnalysis
+    public function scoreAgainstJob(User $user, string $jobDescription, ?int $jobId = null, ?int $cvDocumentId = null): AtsAnalysis
     {
-        $cv = $user->latestProcessedCv;
+        $cv = $this->currentCvFromReview($user, $cvDocumentId);
 
         if (! $cv) {
-            throw new \RuntimeException('Upload and process a CV before running ATS scoring.');
+            throw new \RuntimeException('Upload and process a CV in CV Review before running ATS scoring.');
         }
 
         if ($jobId) {
-            $job = Job::findOrFail($jobId);
-            $jobDescription = trim($job->title."\n".$job->description."\n".($job->requirements ?? ''));
+            $job = Job::with('company')->findOrFail($jobId);
+            $skills = is_array($job->skills) ? implode(', ', $job->skills) : '';
+            $jobDescription = trim(implode("\n", array_filter([
+                $job->title,
+                $job->company?->name ? 'Company: '.$job->company->name : null,
+                $job->description,
+                $job->requirements,
+                $skills !== '' ? 'Skills: '.$skills : null,
+            ])));
         }
 
         $fileContents = null;
@@ -98,5 +105,18 @@ class CvAnalysisService
     {
         Storage::disk($document->disk)->delete($document->path);
         $document->delete();
+    }
+
+    protected function currentCvFromReview(User $user, ?int $cvDocumentId): ?CvDocument
+    {
+        $query = CvDocument::query()
+            ->where('user_id', $user->id)
+            ->where('status', 'processed');
+
+        if ($cvDocumentId) {
+            return $query->whereKey($cvDocumentId)->first();
+        }
+
+        return $user->latestProcessedCv;
     }
 }

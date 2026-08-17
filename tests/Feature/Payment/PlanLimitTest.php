@@ -101,6 +101,7 @@ test('free seekers are limited to three mock interviews per month', function () 
 
 test('premium seekers can start mock interviews after the free monthly cap', function () {
     $seeker = User::factory()->jobSeeker()->create();
+    CvDocument::factory()->create(['user_id' => $seeker->id]);
     subscribeToPlan($seeker, [
         'mock_interviews_per_month' => null,
         'cv_documents' => null,

@@ -3,13 +3,13 @@ import AppLayout from '@/layouts/AppLayout.vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { mockInterview } from '@/routes';
+import { cvReview, mockInterview } from '@/routes';
 import mockInterviewRoutes from '@/routes/mock-interview';
 import { type BreadcrumbItem } from '@/types';
 import PlanQuotaNotice from '@/components/PlanQuotaNotice.vue';
 import { type PlanQuota } from '@/types/plan-quota';
 import InputError from '@/components/InputError.vue';
-import { Head, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { Video, Play, Mic, Clock, TrendingUp, CheckCircle2, TrendingDown, MessageSquare, Volume2, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -31,11 +31,12 @@ const props = defineProps<{
         total_time: number;
     };
     quota?: PlanQuota;
+    hasCv?: boolean;
 }>();
 
 const page = usePage();
 const errors = computed(() => page.props.errors || {});
-const canStart = computed(() => props.quota?.allowed !== false);
+const canStart = computed(() => props.quota?.allowed !== false && props.hasCv !== false);
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -57,6 +58,9 @@ const selectMode = (mode: string) => {
 };
 
 const startInterview = () => {
+    if (props.hasCv === false) {
+        return;
+    }
     if (!canStart.value) {
         return;
     }
@@ -136,10 +140,15 @@ const closeResults = () => {
             <div>
                 <h1 class="text-3xl font-bold tracking-tight">Mock Interview</h1>
                 <p class="text-muted-foreground mt-2">
-                    Practice with AI-powered interviews and get detailed feedback on your performance
+                    Practice with a full 10-question set generated from your CV, the same way recruitment interviews work.
                 </p>
                 <PlanQuotaNotice class="mt-3" :quota="quota" />
                 <InputError class="mt-2" :message="errors.plan" />
+                <InputError class="mt-2" :message="errors.cv" />
+                <p v-if="hasCv === false" class="mt-2 text-sm text-muted-foreground">
+                    <Link :href="cvReview().url" class="text-primary underline-offset-4 hover:underline">Upload and review a CV</Link>
+                    first so questions can reference your skills, projects, and experience.
+                </p>
             </div>
 
             <!-- Quick Start Card -->
@@ -150,7 +159,7 @@ const closeResults = () => {
                         Start New Interview
                     </CardTitle>
                     <CardDescription>
-                        Choose your interview mode, type and difficulty level
+                        Choose mode, type, and difficulty. All questions are generated at once from your CV.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

@@ -2,13 +2,13 @@
 import AppLayout from '@/layouts/AppLayout.vue';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { cvReview } from '@/routes';
+import { atsScoring, cvReview } from '@/routes';
 import cvReviewRoutes from '@/routes/cv-review';
 import InputError from '@/components/InputError.vue';
 import PlanQuotaNotice from '@/components/PlanQuotaNotice.vue';
 import { type PlanQuota } from '@/types/plan-quota';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router, usePage } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { Upload, FileText, CheckCircle2, Trash2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
@@ -141,6 +141,11 @@ const list = (items?: string[]) => items?.filter(Boolean) ?? [];
                         <span class="text-primary text-2xl font-bold">{{ latest.review_score ?? '—' }}/100</span>
                     </CardTitle>
                     <CardDescription>{{ latest.review?.summary }}</CardDescription>
+                    <div class="pt-2">
+                        <Button variant="outline" size="sm" as-child>
+                            <Link :href="atsScoring({ query: { cv: latest.id } }).url">Score against a job role</Link>
+                        </Button>
+                    </div>
                 </CardHeader>
                 <CardContent class="grid gap-6 md:grid-cols-2">
                     <div>

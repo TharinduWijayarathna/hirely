@@ -146,3 +146,97 @@ test('ats scoring stores a compatibility result', function () {
     expect($user->atsAnalyses()->count())->toBe(1)
         ->and($user->atsAnalyses()->first()->score)->toBeInt();
 });
+
+test('ats scoring page uses the current cv from cv review', function () {
+    $user = User::factory()->jobSeeker()->create();
+    $cv = CvDocument::factory()->create([
+        'user_id' => $user->id,
+        'original_name' => 'my-resume.pdf',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('ats-scoring'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('job-seeker/ATSScoring')
+            ->where('cv.id', $cv->id)
+            ->where('cv.original_name', 'my-resume.pdf')
+            ->has('cvs', 1)
+        );
+});
+
+test('ats scoring analyzes the cv review document against a job role', function () {
+    $user = User::factory()->jobSeeker()->create();
+    subscribeToPlan($user, [
+        'mock_interviews_per_month' => null,
+        'cv_documents' => null,
+        'ats' => true,
+    ], [
+        'name' => 'professional',
+        'display_name' => 'Premium Plan',
+        'amount' => 19.99,
+        'target_role' => 'job_seeker',
+    ]);
+    $reviewedCv = CvDocument::factory()->create([
+        'user_id' => $user->id,
+        'original_name' => 'reviewed-cv.pdf',
+    ]);
+    $currentCv = CvDocument::factory()->create([
+        'user_id' => $user->id,
+        'original_name' => 'current-cv.pdf',
+    ]);
+    $job = Job::factory()->create([
+        'title' => 'Laravel Engineer',
+        'description' => 'Build APIs with PHP and Laravel.',
+        'requirements' => 'PHP, Laravel, Vue',
+        'status' => 'active',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('ats-scoring', ['cv' => $reviewedCv->id]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('cv.id', $reviewedCv->id)
+            ->where('cv.original_name', 'reviewed-cv.pdf')
+            ->has('jobs', 1)
+            ->where('jobs.0.title', 'Laravel Engineer')
+        );
+
+    $this->actingAs($user)
+        ->post(route('ats-scoring.store'), [
+            'cv_document_id' => $reviewedCv->id,
+            'job_id' => $job->id,
+        ])
+        ->assertRedirect(route('ats-scoring'));
+
+    $analysis = $user->atsAnalyses()->first();
+
+    expect($analysis->cv_document_id)->toBe($reviewedCv->id)
+        ->and($analysis->job_id)->toBe($job->id)
+        ->and($analysis->job_description)->toContain('Laravel Engineer')
+        ->and($currentCv->id)->toBeGreaterThan($reviewedCv->id);
+});
+
+test('ats scoring cannot use another users cv from review', function () {
+    $user = User::factory()->jobSeeker()->create();
+    $other = User::factory()->jobSeeker()->create();
+    subscribeToPlan($user, [
+        'mock_interviews_per_month' => null,
+        'cv_documents' => null,
+        'ats' => true,
+    ], [
+        'name' => 'professional',
+        'display_name' => 'Premium Plan',
+        'amount' => 19.99,
+        'target_role' => 'job_seeker',
+    ]);
+    CvDocument::factory()->create(['user_id' => $user->id]);
+    $foreignCv = CvDocument::factory()->create(['user_id' => $other->id]);
+
+    $this->actingAs($user)
+        ->post(route('ats-scoring.store'), [
+            'cv_document_id' => $foreignCv->id,
+            'job_description' => str_repeat('Looking for a Laravel engineer. ', 5),
+        ])
+        ->assertSessionHasErrors('cv_document_id');
+});
