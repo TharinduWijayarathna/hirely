@@ -129,7 +129,7 @@ class PaymentController extends Controller
                 return redirect()->back()->with('error', 'Failed to create payment plan. Please try again.');
             }
 
-            $successUrl = route('payment.success', ['session_id' => '{CHECKOUT_SESSION_ID}']);
+            $successUrl = route('payment.success') . '?session_id={CHECKOUT_SESSION_ID}';
             $cancelUrl = route('payment.cancel');
 
             $session = $this->stripeService->createCheckoutSession(
@@ -179,14 +179,13 @@ class PaymentController extends Controller
                 return redirect()->route($user->billingRouteName())->with('error', 'Invalid payment session.');
             }
 
-            $session = \Stripe\Checkout\Session::retrieve($sessionId, [
-                'expand' => ['subscription', 'customer'],
-            ]);
+            $session = \Stripe\Checkout\Session::retrieve($sessionId);
 
             if ($session->payment_status === 'paid' || $session->payment_status === 'no_payment_required') {
                 // Create or update subscription record
                 if ($session->mode === 'subscription' && $session->subscription) {
-                    $stripeSubscription = $session->subscription;
+                    $subscriptionId = is_object($session->subscription) ? $session->subscription->id : $session->subscription;
+                    $stripeSubscription = \Stripe\Subscription::retrieve($subscriptionId);
 
                     // Find plan from metadata or subscription
                     $planId = $session->metadata->plan_id ?? null;
@@ -206,8 +205,8 @@ class PaymentController extends Controller
                             'payment_plan_id' => $planId,
                             'stripe_customer_id' => $session->customer,
                             'status' => $stripeSubscription->status,
-                            'starts_at' => \Carbon\Carbon::createFromTimestamp($stripeSubscription->current_period_start),
-                            'ends_at' => \Carbon\Carbon::createFromTimestamp($stripeSubscription->current_period_end),
+                            'starts_at' => \Carbon\Carbon::createFromTimestamp($stripeSubscription->current_period_start ?? $stripeSubscription->created ?? now()->timestamp),
+                            'ends_at' => \Carbon\Carbon::createFromTimestamp($stripeSubscription->current_period_end ?? now()->addMonth()->timestamp),
                             'trial_ends_at' => $stripeSubscription->trial_end ? \Carbon\Carbon::createFromTimestamp($stripeSubscription->trial_end) : null,
                             'cancel_at_period_end' => $stripeSubscription->cancel_at_period_end,
                             'canceled_at' => $stripeSubscription->canceled_at ? \Carbon\Carbon::createFromTimestamp($stripeSubscription->canceled_at) : null,

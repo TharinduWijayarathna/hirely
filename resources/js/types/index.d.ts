@@ -57,6 +57,7 @@ export interface User {
     email_verified_at: string | null;
     two_factor_enabled?: boolean;
     role?: UserRole;
+    tier?: string;
     subscription_tier?: 'basic' | 'professional' | 'enterprise' | null;
     stats?: {
         total_users?: number;

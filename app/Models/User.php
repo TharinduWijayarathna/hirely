@@ -99,6 +99,12 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->activeSubscription !== null && $this->activeSubscription->isActive();
     }
 
+    public function getTierAttribute(): string
+    {
+        $activeSubscription = $this->activeSubscription()->with('paymentPlan')->first();
+        return $activeSubscription ? $activeSubscription->paymentPlan->name : 'basic';
+    }
+
     public function hasRole(string ...$roles): bool
     {
         return in_array($this->role, $roles, true);
