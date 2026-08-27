@@ -183,7 +183,7 @@ class PaymentController extends Controller
                 'expand' => ['subscription', 'customer'],
             ]);
 
-            if ($session->payment_status === 'paid') {
+            if ($session->payment_status === 'paid' || $session->payment_status === 'no_payment_required') {
                 // Create or update subscription record
                 if ($session->mode === 'subscription' && $session->subscription) {
                     $stripeSubscription = $session->subscription;

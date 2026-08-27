@@ -45,6 +45,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 // Check if user is on free plan
 const isFreePlan = computed(() => {
+    if (!props.activeSubscription) return true;
     return props.activeSubscription?.payment_plan?.amount === 0 && props.activeSubscription?.status === 'active';
 });
 
@@ -55,6 +56,10 @@ const canUpgrade = computed(() => {
 
 // Check if plan is the current active plan
 const isCurrentPlan = (planId: number) => {
+    if (!props.activeSubscription) {
+        const plan = props.plans.find(p => p.id === planId);
+        return plan?.amount === 0;
+    }
     return props.activeSubscription?.payment_plan?.id === planId && props.activeSubscription?.status === 'active';
 };
 

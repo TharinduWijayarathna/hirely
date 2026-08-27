@@ -100,11 +100,6 @@ const jobSeekerNavItems: NavItem[] = [
         title: 'Job Applications',
         href: jobApplications(),
         icon: FileSearch,
-    },
-    {
-        title: 'Premium Features',
-        href: '/payments',
-        icon: CreditCard,
     }
 ];
 
@@ -149,11 +144,6 @@ const hrProfessionalNavItems: NavItem[] = [
         title: 'Company',
         href: companySettings(),
         icon: Building2,
-    },
-    {
-        title: 'Subscriptions',
-        href: subscriptions(),
-        icon: CreditCard,
     }
 ];
 
@@ -252,7 +242,10 @@ const mainNavItems = computed(() => {
         <SidebarFooter class="p-4">
             <!-- Subscription Tier for Job Seekers and HR Professionals -->
             <template v-if="paymentsRequired && (userRole === 'job_seeker' || userRole === 'hr_professional')">
-                <SidebarSubscriptionTier :tier="page.props.auth?.user?.subscription_tier || null" />
+                <SidebarSubscriptionTier 
+                    :tier="page.props.auth?.user?.subscription_tier || null" 
+                    :href="userRole === 'job_seeker' ? '/payments' : '/subscriptions'"
+                />
             </template>
 
             <!-- Admin Panel Info for Admins -->

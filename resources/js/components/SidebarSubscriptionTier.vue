@@ -7,6 +7,7 @@ import { computed } from 'vue';
 
 interface Props {
     tier?: 'basic' | 'professional' | 'enterprise' | null;
+    href?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -14,6 +15,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const subscriptionTier = computed(() => props.tier || 'basic');
+const linkHref = computed(() => props.href || subscriptions());
 
 const tierConfig = {
     basic: {
@@ -59,7 +61,7 @@ const currentTier = computed(() => tierConfig[subscriptionTier.value]);
 
 <template>
     <Link
-        :href="subscriptions()"
+        :href="linkHref"
         :class="[
             'group relative block overflow-hidden rounded-lg border p-3.5 transition-all duration-300',
             `bg-gradient-to-br ${currentTier.gradient}`,
