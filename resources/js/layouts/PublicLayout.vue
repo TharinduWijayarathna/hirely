@@ -30,6 +30,7 @@ defineProps<{
                 <nav class="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 text-sm font-medium">
                     <Link href="/jobs" class="text-foreground/80 hover:text-primary">Jobs</Link>
                     <Link href="/organization" class="text-foreground/80 hover:text-primary">Organizations</Link>
+                    <Link href="/about" class="text-foreground/80 hover:text-primary">About</Link>
                     <ThemeToggle />
                     <Link v-if="$page.props.auth.user" :href="dashboard()" class="text-foreground/80 hover:text-primary">
                         Dashboard
@@ -52,9 +53,12 @@ defineProps<{
                     <HirelyMark class="size-6" />
                     Hirely
                 </span>
-                <Link href="/organization/register" class="font-medium text-primary hover:underline">
-                    Hiring? Register your organization
-                </Link>
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+                    <Link href="/about" class="hover:text-foreground">About</Link>
+                    <Link href="/organization/register" class="font-medium text-primary hover:underline">
+                        Hiring? Register your organization
+                    </Link>
+                </div>
             </div>
         </footer>
     </div>

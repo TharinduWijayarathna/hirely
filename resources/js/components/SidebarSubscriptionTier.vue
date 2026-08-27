@@ -56,7 +56,7 @@ const tierConfig = {
     },
 };
 
-const currentTier = computed(() => tierConfig[subscriptionTier.value]);
+const currentTier = computed(() => tierConfig[subscriptionTier.value] ?? tierConfig.basic);
 </script>
 
 <template>

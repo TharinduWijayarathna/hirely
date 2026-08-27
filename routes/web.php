@@ -45,6 +45,8 @@ Route::get('/', function () {
     ]);
 })->name('home');
 
+Route::get('about', fn () => Inertia::render('public/About'))->name('about');
+
 Route::get('jobs', [PublicJobController::class, 'index'])->name('jobs.index');
 Route::get('jobs/{job:slug}', [PublicJobController::class, 'show'])->name('jobs.show');
 Route::get('jobs/{job:slug}/apply', [PublicJobController::class, 'start'])

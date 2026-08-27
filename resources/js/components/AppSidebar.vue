@@ -48,6 +48,13 @@ import AppLogo from './AppLogo.vue';
 const page = usePage();
 const userRole = computed(() => (page.props.auth?.user?.role || 'job_seeker') as UserRole);
 const paymentsRequired = computed(() => page.props.payments?.required ?? true);
+const subscriptionTier = computed(
+    () => (page.props.auth?.user?.tier || page.props.auth?.user?.subscription_tier || null) as
+        | 'basic'
+        | 'professional'
+        | 'enterprise'
+        | null,
+);
 
 // Job Seeker Navigation Items
 const jobSeekerNavItems: NavItem[] = [
@@ -243,7 +250,7 @@ const mainNavItems = computed(() => {
             <!-- Subscription Tier for Job Seekers and HR Professionals -->
             <template v-if="paymentsRequired && (userRole === 'job_seeker' || userRole === 'hr_professional')">
                 <SidebarSubscriptionTier 
-                    :tier="page.props.auth?.user?.subscription_tier || null" 
+                    :tier="subscriptionTier" 
                     :href="userRole === 'job_seeker' ? '/payments' : '/subscriptions'"
                 />
             </template>

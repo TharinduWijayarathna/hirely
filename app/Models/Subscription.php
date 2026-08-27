@@ -8,6 +8,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Subscription extends Model
 {
+    /**
+     * Stripe statuses that grant the subscribed plan's features.
+     *
+     * @var list<string>
+     */
+    public const ENTITLED_STATUSES = ['active', 'trialing'];
+
     protected $fillable = [
         'user_id',
         'payment_plan_id',
@@ -48,16 +55,24 @@ class Subscription extends Model
 
     public function isActive(): bool
     {
-        return $this->status === 'active' && ($this->ends_at === null || $this->ends_at->isFuture());
+        if (! in_array($this->status, self::ENTITLED_STATUSES, true)) {
+            return false;
+        }
+
+        return $this->ends_at === null || $this->ends_at->isFuture();
     }
 
     public function isTrial(): bool
     {
+        if ($this->status === 'trialing') {
+            return $this->trial_ends_at === null || $this->trial_ends_at->isFuture();
+        }
+
         return $this->trial_ends_at !== null && $this->trial_ends_at->isFuture();
     }
 
     public function scopeActive($query)
     {
-        return $query->where('status', 'active');
+        return $query->whereIn('status', self::ENTITLED_STATUSES);
     }
 }

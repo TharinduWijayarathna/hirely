@@ -29,6 +29,7 @@ interface Props {
             display_name: string;
             amount: number;
         };
+        trial_ends_at?: string | null;
     } | null;
 }
 
@@ -43,10 +44,34 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
+const entitledStatuses = ['active', 'trialing'];
+
+const isEntitledStatus = (status?: string | null) =>
+    !!status && entitledStatuses.includes(status);
+
+const isOnTrial = computed(() => {
+    if (!props.activeSubscription || !isEntitledStatus(props.activeSubscription.status)) {
+        return false;
+    }
+
+    if (props.activeSubscription.status === 'trialing') {
+        return true;
+    }
+
+    if (!props.activeSubscription.trial_ends_at) {
+        return false;
+    }
+
+    return new Date(props.activeSubscription.trial_ends_at).getTime() > Date.now();
+});
+
 // Check if user is on free plan
 const isFreePlan = computed(() => {
-    if (!props.activeSubscription) return true;
-    return props.activeSubscription?.payment_plan?.amount === 0 && props.activeSubscription?.status === 'active';
+    if (!props.activeSubscription || !isEntitledStatus(props.activeSubscription.status)) {
+        return true;
+    }
+
+    return props.activeSubscription.payment_plan?.amount === 0;
 });
 
 // Check if user can upgrade (on free plan)
@@ -56,11 +81,11 @@ const canUpgrade = computed(() => {
 
 // Check if plan is the current active plan
 const isCurrentPlan = (planId: number) => {
-    if (!props.activeSubscription) {
+    if (!props.activeSubscription || !isEntitledStatus(props.activeSubscription.status)) {
         const plan = props.plans.find(p => p.id === planId);
         return plan?.amount === 0;
     }
-    return props.activeSubscription?.payment_plan?.id === planId && props.activeSubscription?.status === 'active';
+    return props.activeSubscription.payment_plan?.id === planId;
 };
 
 // Determine if button should be enabled for a plan
@@ -180,10 +205,16 @@ const getFirstPremiumPlan = () => {
                         <Badge v-if="isFreePlan" class="ml-2 bg-yellow-500 text-white">
                             Free Plan
                         </Badge>
+                        <Badge v-else-if="isOnTrial" class="ml-2 bg-blue-500 text-white">
+                            Trial
+                        </Badge>
                     </CardTitle>
                     <CardDescription>
                         <span v-if="isFreePlan" class="text-primary font-medium">
                             Upgrade to unlock premium features!
+                        </span>
+                        <span v-else-if="isOnTrial && activeSubscription.trial_ends_at">
+                            Trial access to premium features until {{ new Date(activeSubscription.trial_ends_at).toLocaleDateString() }}
                         </span>
                         <span v-else>
                             You have access to premium features

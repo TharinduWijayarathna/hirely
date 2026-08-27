@@ -86,7 +86,9 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function activeSubscription(): HasOne
     {
-        return $this->hasOne(Subscription::class)->where('status', 'active')->latest();
+        return $this->hasOne(Subscription::class)
+            ->whereIn('status', Subscription::ENTITLED_STATUSES)
+            ->latest();
     }
 
     public function payments(): HasMany
@@ -102,6 +104,7 @@ class User extends Authenticatable implements MustVerifyEmail
     public function getTierAttribute(): string
     {
         $activeSubscription = $this->activeSubscription()->with('paymentPlan')->first();
+
         return $activeSubscription ? $activeSubscription->paymentPlan->name : 'basic';
     }
 

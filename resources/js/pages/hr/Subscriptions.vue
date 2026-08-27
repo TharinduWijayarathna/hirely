@@ -31,6 +31,7 @@ interface Props {
             amount: number;
         };
         ends_at: string | null;
+        trial_ends_at: string | null;
         cancel_at_period_end: boolean;
     } | null;
     subscriptions: Array<{
@@ -57,10 +58,34 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
+const entitledStatuses = ['active', 'trialing'];
+
+const isEntitledStatus = (status?: string | null) =>
+    !!status && entitledStatuses.includes(status);
+
+const isOnTrial = computed(() => {
+    if (!props.activeSubscription || !isEntitledStatus(props.activeSubscription.status)) {
+        return false;
+    }
+
+    if (props.activeSubscription.status === 'trialing') {
+        return true;
+    }
+
+    if (!props.activeSubscription.trial_ends_at) {
+        return false;
+    }
+
+    return new Date(props.activeSubscription.trial_ends_at).getTime() > Date.now();
+});
+
 // Check if user is on free plan
 const isFreePlan = computed(() => {
-    if (!props.activeSubscription) return true;
-    return props.activeSubscription?.payment_plan?.amount === 0 && props.activeSubscription?.status === 'active';
+    if (!props.activeSubscription || !isEntitledStatus(props.activeSubscription.status)) {
+        return true;
+    }
+
+    return props.activeSubscription.payment_plan?.amount === 0;
 });
 
 // Check if user can upgrade (on free plan)
@@ -70,11 +95,11 @@ const canUpgrade = computed(() => {
 
 // Check if plan is the current active plan
 const isCurrentPlan = (planId: number) => {
-    if (!props.activeSubscription) {
+    if (!props.activeSubscription || !isEntitledStatus(props.activeSubscription.status)) {
         const plan = props.plans.find(p => p.id === planId);
         return plan?.amount === 0;
     }
-    return props.activeSubscription?.payment_plan?.id === planId && props.activeSubscription?.status === 'active';
+    return props.activeSubscription.payment_plan?.id === planId;
 };
 
 // Determine if button should be enabled for a plan
@@ -221,14 +246,20 @@ const getFirstPremiumPlan = () => {
                             <Badge v-if="isFreePlan" class="ml-2 bg-yellow-500 text-white">
                                 Free Plan
                             </Badge>
+                            <Badge v-else-if="isOnTrial" class="ml-2 bg-blue-500 text-white">
+                                Trial
+                            </Badge>
                         </span>
-                        <Badge :class="activeSubscription.status === 'active' ? 'bg-green-500' : 'bg-yellow-500'">
+                        <Badge :class="activeSubscription.status === 'active' || activeSubscription.status === 'trialing' ? 'bg-green-500' : 'bg-yellow-500'">
                             {{ activeSubscription.status }}
                         </Badge>
                     </CardTitle>
                     <CardDescription>
                         {{ formatPrice(activeSubscription.payment_plan.amount, 'USD') }} per {{ activeSubscription.payment_plan.amount === 0 ? 'month (Free)' : 'month' }}
-                        <span v-if="activeSubscription.ends_at && !isFreePlan">
+                        <span v-if="isOnTrial && activeSubscription.trial_ends_at">
+                            • Trial ends {{ new Date(activeSubscription.trial_ends_at).toLocaleDateString() }}
+                        </span>
+                        <span v-else-if="activeSubscription.ends_at && !isFreePlan">
                             • Renews on {{ new Date(activeSubscription.ends_at).toLocaleDateString() }}
                         </span>
                         <span v-if="isFreePlan" class="block mt-2 text-primary font-medium">

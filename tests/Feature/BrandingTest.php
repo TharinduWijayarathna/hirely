@@ -1,5 +1,11 @@
 <?php
 
+test('the about page renders successfully', function () {
+    $this->get(route('about'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('public/About'));
+});
+
 test('the public welcome page is branded hirely', function () {
     $this->get('/')
         ->assertOk()
