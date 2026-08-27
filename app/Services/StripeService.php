@@ -100,6 +100,17 @@ class StripeService
 
         $customerId = $this->getOrCreateCustomer($user);
 
+        $subscriptionData = [
+            'metadata' => [
+                'user_id' => $user->id,
+                'plan_id' => $plan->id,
+            ],
+        ];
+
+        if ($plan->trial_days > 0) {
+            $subscriptionData['trial_period_days'] = $plan->trial_days;
+        }
+
         $sessionData = [
             'customer' => $customerId,
             'mode' => 'subscription',
@@ -114,12 +125,7 @@ class StripeService
                 'user_id' => $user->id,
                 'plan_id' => $plan->id,
             ],
-            'subscription_data' => [
-                'metadata' => [
-                    'user_id' => $user->id,
-                    'plan_id' => $plan->id,
-                ],
-            ],
+            'subscription_data' => $subscriptionData,
         ];
 
         return $this->client()->checkout->sessions->create($sessionData);

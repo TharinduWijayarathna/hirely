@@ -17,6 +17,7 @@ class PaymentPlan extends Model
         'amount',
         'currency',
         'interval',
+        'trial_days',
         'stripe_price_id',
         'stripe_product_id',
         'features',
@@ -28,6 +29,7 @@ class PaymentPlan extends Model
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'trial_days' => 'integer',
         'features' => 'array',
         'limits' => 'array',
         'is_active' => 'boolean',

@@ -40,9 +40,10 @@ class PaymentPlanSeeder extends Seeder
                 'name' => 'professional',
                 'display_name' => 'Professional Plan',
                 'description' => 'For growing HR teams',
-                'amount' => 49.00,
+                'amount' => 60.00,
                 'currency' => 'USD',
                 'interval' => 'month',
+                'trial_days' => 60,
                 'stripe_price_id' => null, // Set this after creating in Stripe
                 'stripe_product_id' => null,
                 'features' => [

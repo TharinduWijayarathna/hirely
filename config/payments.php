@@ -15,4 +15,16 @@ return [
 
     'required' => filter_var(env('PAYMENTS_REQUIRED', true), FILTER_VALIDATE_BOOLEAN),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Enable Stripe Webhooks
+    |--------------------------------------------------------------------------
+    |
+    | When false, the StripeWebhookController will immediately return a 200 OK
+    | without parsing or handling the payload. Useful for local dev setups.
+    |
+    */
+
+    'webhook_enabled' => filter_var(env('STRIPE_WEBHOOK_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
+
 ];

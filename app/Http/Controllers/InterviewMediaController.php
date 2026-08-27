@@ -31,9 +31,7 @@ class InterviewMediaController extends Controller
 
         abort_unless(filled($path) && Storage::disk('local')->exists($path), 404);
 
-        return Storage::disk('local')->response($path, 'screenshot.jpg', [
-            'Content-Type' => 'image/jpeg',
-        ]);
+        return Storage::disk('local')->response($path);
     }
 
     protected function authorizeMedia(Interview $interview): void

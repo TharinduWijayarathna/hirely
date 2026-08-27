@@ -13,6 +13,10 @@ class StripeWebhookController extends Controller
 {
     public function __invoke(Request $request, StripeWebhookService $webhooks)
     {
+        if (! config('payments.webhook_enabled')) {
+            return response()->json(['received' => true, 'handled' => false]);
+        }
+
         $secret = config('services.stripe.webhook_secret');
 
         if (! $secret) {
