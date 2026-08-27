@@ -8,7 +8,7 @@ import { useTwoFactorAuth } from '@/composables/useTwoFactorAuth';
 import AppLayout from '@/layouts/AppLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
 import { dashboard } from '@/routes';
-import { disable, enable, show } from '@/routes/two-factor';
+import { show } from '@/routes/two-factor';
 import { BreadcrumbItem } from '@/types';
 import { Form, Head, Link } from '@inertiajs/vue3';
 import { ShieldBan, ShieldCheck } from 'lucide-vue-next';
@@ -78,7 +78,8 @@ onUnmounted(() => {
                         </Button>
                         <Form
                             v-else
-                            v-bind="enable.form()"
+                            action="/user/two-factor-authentication"
+                            method="post"
                             @success="showSetupModal = true"
                             #default="{ processing }"
                         >
@@ -109,7 +110,7 @@ onUnmounted(() => {
                     </Button>
 
                     <div v-if="!props.twoFactorRequired" class="relative inline">
-                        <Form v-bind="disable.form()" #default="{ processing }">
+                        <Form action="/user/two-factor-authentication" method="delete" #default="{ processing }">
                             <Button
                                 variant="destructive"
                                 type="submit"

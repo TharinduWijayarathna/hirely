@@ -78,15 +78,9 @@ class JobApplicationController extends Controller
         ]);
 
         $job = Job::findOrFail($validated['job_id']);
-        $result = $applications->apply(Auth::user(), $job, $validated['cover_letter'] ?? null);
+        $applications->apply(Auth::user(), $job, $validated['cover_letter'] ?? null);
 
-        if ($result['interview']) {
-            return redirect()
-                ->route('interviews.show', $result['interview'])
-                ->with('success', 'Application submitted. Your interview is ready.');
-        }
-
-        return redirect()->route('browse-jobs')->with('success', 'Application submitted successfully.');
+        return redirect()->route('browse-jobs')->with('success', 'Application submitted successfully. HR will be in touch after reviewing your application.');
     }
 
     public function destroy(JobApplication $jobApplication)

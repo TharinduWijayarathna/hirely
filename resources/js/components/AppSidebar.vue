@@ -17,7 +17,7 @@ import { cvReview } from '@/routes';
 import { atsScoring } from '@/routes';
 import { mockInterview } from '@/routes';
 import { portfolio, profileScore, skillExpectations, jobApplications, browseJobs, interviews } from '@/routes';
-import { postJobs, reviewCandidates, filterCandidates, subscriptions, interviewTemplates, interviewResults, rankings, reports, companySettings } from '@/routes';
+import { postJobs, reviewCandidates, subscriptions, interviewTemplates, interviewResults, rankings, reports, companySettings } from '@/routes';
 import { userManagement, analytics, companyManagement, hrManagement, jobSeekerManagement } from '@/routes';
 import { payments as adminPayments } from '@/routes/admin';
 import { type NavItem, type UserRole } from '@/types';
@@ -124,11 +124,6 @@ const hrProfessionalNavItems: NavItem[] = [
         title: 'Review Candidates',
         href: reviewCandidates(),
         icon: Users,
-    },
-    {
-        title: 'Filter Candidates',
-        href: filterCandidates(),
-        icon: FileSearch,
     },
     {
         title: 'Interview Templates',

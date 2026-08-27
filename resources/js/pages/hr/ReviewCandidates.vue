@@ -101,6 +101,7 @@ const openDialog = (application: any) => {
         status: application.status,
         notes: application.notes || '',
     };
+    selectedTemplateId.value = '';
     router.reload({ only: ['errors'], preserveState: false });
     isDialogOpen.value = true;
 };
@@ -204,7 +205,7 @@ const statusBadge = (status: string) => `dash-badge dash-badge-${status}`;
                 <p class="text-sm">No candidates match this filter.</p>
             </div>
 
-            <Dialog :open="isDialogOpen" @update:open="(val) => { isDialogOpen = val; if (!val) selectedApplication = null; }">
+            <Dialog :open="isDialogOpen" @update:open="(val) => { isDialogOpen = val; if (!val) { selectedApplication = null; selectedTemplateId = ''; } }">
                 <DialogContent class="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Review Application</DialogTitle>

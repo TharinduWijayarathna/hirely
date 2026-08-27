@@ -40,7 +40,7 @@ const sidebarNavItems = computed<NavItem[]>(() => {
     return items;
 });
 
-const currentPath = typeof window !== undefined ? window.location.pathname : '';
+const currentPath = computed(() => (typeof window !== 'undefined' ? window.location.pathname : page.url));
 </script>
 
 <template>

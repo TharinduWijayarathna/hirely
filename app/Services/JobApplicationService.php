@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Interview;
 use App\Models\Job;
 use App\Models\JobApplication;
 use App\Models\User;
@@ -10,10 +9,8 @@ use Illuminate\Validation\ValidationException;
 
 class JobApplicationService
 {
-    public function __construct(protected InterviewAssignmentService $interviews) {}
-
     /**
-     * @return array{application: JobApplication, interview: Interview|null}
+     * @return array{application: JobApplication, interview: null}
      */
     public function apply(User $seeker, Job $job, ?string $coverLetter = null): array
     {
@@ -45,12 +42,8 @@ class JobApplicationService
 
         app(RecruitmentNotifier::class)->applicationSubmitted($application->load(['job', 'user']));
 
-        $interview = null;
-        $template = $this->interviews->templateForJob($job);
-        if ($template) {
-            $interview = $this->interviews->assign($application, $template, $job->user);
-        }
-
-        return compact('application', 'interview');
+        // Interview assignment is handled manually by HR via Review Candidates.
+        // Applications start in 'pending' status and wait for HR review.
+        return ['application' => $application, 'interview' => null];
     }
 }

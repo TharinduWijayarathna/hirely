@@ -1,5 +1,9 @@
-import { qrCode, recoveryCodes, secretKey } from '@/routes/two-factor';
 import { computed, ref } from 'vue';
+
+// Fortify two-factor API endpoints (not named routes, so no wayfinder stubs)
+const qrCode = { url: () => '/user/two-factor-qr-code' };
+const recoveryCodes = { url: () => '/user/two-factor-recovery-codes' };
+const secretKey = { url: () => '/user/two-factor-secret-key' };
 
 const fetchJson = async <T>(url: string): Promise<T> => {
     const response = await fetch(url, {

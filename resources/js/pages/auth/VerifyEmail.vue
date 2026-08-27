@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import { logout } from '@/routes';
-import { send } from '@/routes/verification';
 import { Form, Head, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
@@ -35,7 +34,8 @@ const twoFactorEnabled = computed(() => usePage().props.twoFactor?.enabled !== f
         </div>
 
         <Form
-            v-bind="send.form()"
+            :action="'/email/verification-notification'"
+            method="post"
             class="space-y-6 text-center"
             v-slot="{ processing }"
         >

@@ -147,7 +147,7 @@ const submit = () => {
                     <p>Create a job seeker account, then apply from this page.</p>
                     <div class="mt-6 flex flex-wrap gap-3">
                         <Link :href="`/jobs/${job.slug}/apply`" class="pub-cta">Log in to apply</Link>
-                        <Link :href="register()" class="font-semibold text-primary hover:underline">Register</Link>
+                        <Link :href="register()" class="pub-cta pub-cta-primary">Register</Link>
                     </div>
                     <p class="mt-4 text-sm">
                         Already registered?
