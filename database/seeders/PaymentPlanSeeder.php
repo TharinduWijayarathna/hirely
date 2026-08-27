@@ -113,7 +113,7 @@ class PaymentPlanSeeder extends Seeder
                 'name' => 'professional',
                 'display_name' => 'Premium Plan',
                 'description' => 'Unlock all premium features',
-                'amount' => 19.99,
+                'amount' => 10.00,
                 'currency' => 'USD',
                 'interval' => 'month',
                 'stripe_price_id' => null, // Set this after creating in Stripe
