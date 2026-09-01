@@ -42,8 +42,13 @@ class JobApplicationService
 
         app(RecruitmentNotifier::class)->applicationSubmitted($application->load(['job', 'user']));
 
-        // Interview assignment is handled manually by HR via Review Candidates.
-        // Applications start in 'pending' status and wait for HR review.
-        return ['application' => $application, 'interview' => null];
+        $interview = null;
+        $template = app(InterviewAssignmentService::class)->templateForJob($job);
+
+        if ($template) {
+            $interview = app(InterviewAssignmentService::class)->assign($application, $template);
+        }
+
+        return ['application' => $application, 'interview' => $interview];
     }
 }

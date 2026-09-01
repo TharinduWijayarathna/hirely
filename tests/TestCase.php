@@ -14,6 +14,7 @@ abstract class TestCase extends BaseTestCase
             'services.gemini.api_key' => '',
             'services.google.tts_api_key' => '',
             'payments.required' => true,
+            'payments.webhook_enabled' => true,
         ]);
     }
 }

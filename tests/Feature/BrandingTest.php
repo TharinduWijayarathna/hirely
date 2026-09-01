@@ -1,6 +1,8 @@
 <?php
 
 test('the about page renders successfully', function () {
+    $this->withoutVite();
+
     $this->get(route('about'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->component('public/About'));
