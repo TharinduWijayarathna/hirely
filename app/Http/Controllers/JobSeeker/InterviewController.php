@@ -261,7 +261,7 @@ class InterviewController extends Controller
         if (($validated['status'] ?? null) === 'completed') {
             $validated['completed_at'] = now();
             if ($interview->started_at) {
-                $validated['duration_minutes'] = now()->diffInMinutes($interview->started_at);
+                $validated['duration_minutes'] = max(0, (int) round($interview->started_at->diffInMinutes(now())));
             }
 
             if (! empty($validated['answers']) && $interview->questions) {

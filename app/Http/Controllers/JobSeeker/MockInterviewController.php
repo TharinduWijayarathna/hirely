@@ -30,9 +30,10 @@ class MockInterviewController extends Controller
             'average_score' => MockInterviewSession::where('user_id', $user->id)
                 ->whereNotNull('score')
                 ->avg('score') ?? 0,
-            'total_time' => MockInterviewSession::where('user_id', $user->id)
+            'total_time' => max(0, (int) MockInterviewSession::where('user_id', $user->id)
                 ->whereNotNull('duration_minutes')
-                ->sum('duration_minutes') ?? 0,
+                ->selectRaw('COALESCE(SUM(ABS(duration_minutes)), 0) as total')
+                ->value('total')),
         ];
 
         return Inertia::render('job-seeker/MockInterview', [
@@ -208,7 +209,7 @@ class MockInterviewController extends Controller
         if (isset($validated['status']) && $validated['status'] === 'completed') {
             $validated['completed_at'] = now();
             if ($session->started_at) {
-                $validated['duration_minutes'] = now()->diffInMinutes($session->started_at);
+                $validated['duration_minutes'] = max(0, (int) round($session->started_at->diffInMinutes(now())));
             }
 
             // Generate AI feedback and scoring if answers are provided

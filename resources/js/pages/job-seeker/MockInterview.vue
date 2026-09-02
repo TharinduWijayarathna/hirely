@@ -107,11 +107,15 @@ const getStatusColor = (status: string) => {
 };
 
 const formatTime = (minutes: number) => {
-    if (minutes < 60) {
-        return `${minutes} min`;
+    const total = Math.max(0, Math.round(minutes));
+
+    if (total < 60) {
+        return `${total} min`;
     }
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
+
+    const hours = Math.floor(total / 60);
+    const mins = total % 60;
+
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 };
 </script>
