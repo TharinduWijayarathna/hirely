@@ -43,9 +43,11 @@ const props = defineProps<{
         interviews?: Array<{
             id: number;
             status: string;
+            interview_template_id?: number | null;
             score?: number | null;
             review_status?: string | null;
         }>;
+        suggested_interview_template_id?: number | null;
     }>;
     templates?: Array<{
         id: number;
@@ -71,7 +73,7 @@ const form = ref({
     status: '',
     notes: '',
 });
-const selectedTemplateId = ref('');
+const selectedTemplateId = ref<number | ''>('');
 const searchQuery = ref('');
 const statusFilter = ref('all');
 const statusOptions = [
@@ -95,30 +97,118 @@ const filteredApplications = computed(() => {
     });
 });
 
+const templatesForApplication = (application: { job: { id: number } }) => {
+    return (props.templates || []).filter(
+        (template) => template.job_id == null || Number(template.job_id) === Number(application.job.id),
+    );
+};
+
+const defaultTemplateIdForApplication = (application: {
+    job: { id: number };
+    suggested_interview_template_id?: number | null;
+}) => {
+    if (application.suggested_interview_template_id) {
+        return application.suggested_interview_template_id;
+    }
+
+    const availableTemplates = templatesForApplication(application);
+
+    if (availableTemplates.length === 1) {
+        return availableTemplates[0].id;
+    }
+
+    const jobSpecific = availableTemplates.filter(
+        (template) => Number(template.job_id) === Number(application.job.id),
+    );
+
+    if (jobSpecific.length === 1) {
+        return jobSpecific[0].id;
+    }
+
+    return null;
+};
+
+const hasAssignedInterview = (application: { interviews?: Array<unknown> }) =>
+    Boolean(application.interviews && application.interviews.length > 0);
+
+const assignedTemplateIdForApplication = (application: {
+    interviews?: Array<{ interview_template_id?: number | null }>;
+}) => application.interviews?.[0]?.interview_template_id ?? null;
+
+const canChangeInterviewTemplate = (application: {
+    interviews?: Array<{ status: string }>;
+}) => !hasAssignedInterview(application) || application.interviews?.[0]?.status === 'pending';
+
+const initialTemplateIdForApplication = (application: {
+    job: { id: number };
+    suggested_interview_template_id?: number | null;
+    interviews?: Array<{ interview_template_id?: number | null }>;
+}) => assignedTemplateIdForApplication(application) ?? defaultTemplateIdForApplication(application);
+
+const syncSelectedApplication = () => {
+    if (!selectedApplication.value) {
+        return;
+    }
+
+    const updated = (props.applications || []).find(
+        (application) => application.id === selectedApplication.value.id,
+    );
+
+    if (updated) {
+        selectedApplication.value = updated;
+    }
+};
+
 const openDialog = (application: any) => {
     selectedApplication.value = application;
     form.value = {
         status: application.status,
         notes: application.notes || '',
     };
-    selectedTemplateId.value = '';
-    router.reload({ only: ['errors'], preserveState: false });
+
+    const initialTemplateId = initialTemplateIdForApplication(application);
+    selectedTemplateId.value = initialTemplateId ?? '';
+
     isDialogOpen.value = true;
 };
 
 const assignInterview = () => {
-    if (!selectedApplication.value || !selectedTemplateId.value) {
+    if (!selectedApplication.value || !canChangeInterviewTemplate(selectedApplication.value)) {
+        return;
+    }
+
+    const defaultTemplateId = defaultTemplateIdForApplication(selectedApplication.value);
+    const templateId = selectedTemplateId.value || defaultTemplateId;
+
+    if (!templateId) {
+        return;
+    }
+
+    const currentTemplateId = assignedTemplateIdForApplication(selectedApplication.value);
+    if (currentTemplateId && Number(currentTemplateId) === Number(templateId)) {
         return;
     }
 
     router.post(
         `/review-candidates/${selectedApplication.value.id}/interviews`,
-        { interview_template_id: selectedTemplateId.value },
+        { interview_template_id: templateId },
         {
+            preserveScroll: true,
+            preserveState: true,
             onSuccess: () => {
-                selectedTemplateId.value = '';
+                router.reload({
+                    only: ['applications'],
+                    preserveScroll: true,
+                    preserveState: true,
+                    onSuccess: () => {
+                        syncSelectedApplication();
+                        if (selectedApplication.value) {
+                            selectedTemplateId.value = initialTemplateIdForApplication(selectedApplication.value) ?? '';
+                        }
+                    },
+                });
             },
-        }
+        },
     );
 };
 
@@ -303,16 +393,40 @@ const statusBadge = (status: string) => `dash-badge dash-badge-${status}`;
                                     id="template"
                                     v-model="selectedTemplateId"
                                     class="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+                                    :disabled="!canChangeInterviewTemplate(selectedApplication)"
                                 >
-                                    <option value="">Select a template</option>
-                                    <option v-for="template in templates" :key="template.id" :value="template.id">
+                                    <option :value="''">Select a template</option>
+                                    <option
+                                        v-for="template in templatesForApplication(selectedApplication)"
+                                        :key="template.id"
+                                        :value="template.id"
+                                    >
                                         {{ template.name }} ({{ template.difficulty }}/{{ template.mode }})
                                     </option>
                                 </select>
-                                <Button type="button" variant="outline" :disabled="!selectedTemplateId" @click="assignInterview">
-                                    Assign
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    :disabled="
+                                        !canChangeInterviewTemplate(selectedApplication)
+                                        || (!selectedTemplateId && !defaultTemplateIdForApplication(selectedApplication))
+                                        || (
+                                            hasAssignedInterview(selectedApplication)
+                                            && Number(assignedTemplateIdForApplication(selectedApplication)) === Number(selectedTemplateId || defaultTemplateIdForApplication(selectedApplication))
+                                        )
+                                    "
+                                    @click="assignInterview"
+                                >
+                                    {{ hasAssignedInterview(selectedApplication) ? 'Update' : 'Assign' }}
                                 </Button>
                             </div>
+                            <p
+                                v-if="hasAssignedInterview(selectedApplication) && !canChangeInterviewTemplate(selectedApplication)"
+                                class="text-muted-foreground text-sm"
+                            >
+                                This interview has already started and its template can no longer be changed.
+                            </p>
+                            <InputError :message="errors.interview_template_id" />
                         </div>
                     </div>
                     <DialogFooter>

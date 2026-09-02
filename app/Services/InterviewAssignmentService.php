@@ -7,6 +7,7 @@ use App\Models\InterviewTemplate;
 use App\Models\Job;
 use App\Models\JobApplication;
 use App\Models\User;
+use Illuminate\Support\Collection;
 
 class InterviewAssignmentService
 {
@@ -21,9 +22,32 @@ class InterviewAssignmentService
 
         $existing = Interview::where('job_application_id', $application->id)->first();
         if ($existing) {
-            return $existing;
+            if ($existing->interview_template_id === $template->id) {
+                return $existing;
+            }
+
+            if ($existing->status !== 'pending') {
+                throw new \InvalidArgumentException('Only pending interviews can be reassigned to a different template.');
+            }
+
+            return $this->reassign($existing, $application, $template, $assignedBy);
         }
 
+        $interview = Interview::create($this->interviewAttributes($application, $template, $assignedBy));
+
+        app(RecruitmentNotifier::class)->interviewAssigned($interview);
+
+        return $interview;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function interviewAttributes(
+        JobApplication $application,
+        InterviewTemplate $template,
+        ?User $assignedBy = null,
+    ): array {
         $criteria = array_values(array_filter(
             $template->evaluation_criteria ?? [],
             fn ($item) => is_string($item) && trim($item) !== ''
@@ -31,7 +55,7 @@ class InterviewAssignmentService
 
         $questionCount = max(10, (int) $template->question_count);
 
-        $interview = Interview::create([
+        return [
             'interview_template_id' => $template->id,
             'job_application_id' => $application->id,
             'job_id' => $application->job_id,
@@ -50,11 +74,18 @@ class InterviewAssignmentService
             ),
             'criteria' => $criteria === [] ? Interview::DEFAULT_CRITERIA : $criteria,
             'question_weights' => $template->question_weights,
-        ]);
+        ];
+    }
 
-        app(RecruitmentNotifier::class)->interviewAssigned($interview);
+    protected function reassign(
+        Interview $interview,
+        JobApplication $application,
+        InterviewTemplate $template,
+        ?User $assignedBy = null,
+    ): Interview {
+        $interview->update($this->interviewAttributes($application, $template, $assignedBy));
 
-        return $interview;
+        return $interview->fresh();
     }
 
     public function templateForJob(Job $job): ?InterviewTemplate
@@ -69,5 +100,40 @@ class InterviewAssignmentService
         }
 
         return $query->whereNull('job_id')->latest()->first();
+    }
+
+    /**
+     * @return Collection<int, InterviewTemplate>
+     */
+    public function templatesForJob(User $user, Job $job): Collection
+    {
+        return InterviewTemplate::visibleTo($user)
+            ->where('is_active', true)
+            ->where(function ($query) use ($job) {
+                $query->whereNull('job_id')->orWhere('job_id', $job->id);
+            })
+            ->orderBy('name')
+            ->get();
+    }
+
+    public function defaultTemplateForJob(User $user, Job $job): ?InterviewTemplate
+    {
+        $templates = $this->templatesForJob($user, $job);
+
+        $jobSpecific = $templates->where('job_id', $job->id);
+        if ($jobSpecific->count() === 1) {
+            return $jobSpecific->first();
+        }
+
+        if ($templates->count() === 1) {
+            return $templates->first();
+        }
+
+        return null;
+    }
+
+    public function soleTemplateForJob(User $user, Job $job): ?InterviewTemplate
+    {
+        return $this->defaultTemplateForJob($user, $job);
     }
 }

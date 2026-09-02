@@ -21,15 +21,31 @@ class InterviewController extends Controller
         }
 
         $validated = $request->validate([
-            'interview_template_id' => 'required|exists:interview_templates,id',
+            'interview_template_id' => 'nullable|exists:interview_templates,id',
         ]);
 
-        $template = InterviewTemplate::visibleTo($user)
-            ->where('is_active', true)
-            ->findOrFail($validated['interview_template_id']);
+        if (! empty($validated['interview_template_id'])) {
+            $template = InterviewTemplate::visibleTo($user)
+                ->where('is_active', true)
+                ->findOrFail($validated['interview_template_id']);
+        } else {
+            $template = $assignments->defaultTemplateForJob($user, $application->job);
 
-        $assignments->assign($application, $template, $user);
+            if (! $template) {
+                return back()->withErrors([
+                    'interview_template_id' => 'Please select an interview template.',
+                ]);
+            }
+        }
 
-        return redirect()->route('review-candidates')->with('success', 'Interview assigned to candidate.');
+        try {
+            $assignments->assign($application, $template, $user);
+        } catch (\InvalidArgumentException $exception) {
+            return back()->withErrors([
+                'interview_template_id' => $exception->getMessage(),
+            ]);
+        }
+
+        return back()->with('success', 'Interview assigned to candidate.');
     }
 }

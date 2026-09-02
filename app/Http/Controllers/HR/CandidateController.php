@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Job;
 use App\Models\JobApplication;
 use App\Models\User;
+use App\Services\InterviewAssignmentService;
 use App\Services\RecruitmentNotifier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,12 +19,23 @@ class CandidateController extends Controller
     {
         $jobs = Job::visibleTo(Auth::user())->pluck('id');
 
+        $user = Auth::user();
+        $assignments = app(InterviewAssignmentService::class);
+
         $applications = JobApplication::whereIn('job_id', $jobs)
             ->with(['user.latestProcessedCv', 'job.company', 'interviews'])
             ->latest()
-            ->get();
+            ->get()
+            ->map(function (JobApplication $application) use ($assignments, $user) {
+                $application->setAttribute(
+                    'suggested_interview_template_id',
+                    $assignments->defaultTemplateForJob($user, $application->job)?->id,
+                );
 
-        $templates = \App\Models\InterviewTemplate::visibleTo(Auth::user())
+                return $application;
+            });
+
+        $templates = \App\Models\InterviewTemplate::visibleTo($user)
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name', 'job_id', 'difficulty', 'mode']);

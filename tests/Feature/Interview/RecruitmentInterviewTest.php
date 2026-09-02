@@ -73,6 +73,7 @@ test('hr can assign a recruitment interview to an applicant', function () {
     ]);
 
     $this->actingAs($hr)
+        ->from(route('review-candidates'))
         ->post(route('review-candidates.interviews.store', $application), [
             'interview_template_id' => $template->id,
         ])
@@ -87,6 +88,116 @@ test('hr can assign a recruitment interview to an applicant', function () {
         ->and($interview->criteria)->toBe(['Technical depth', 'Role fit'])
         ->and($interview->question_weights['Technical depth'] ?? null)->toBe(40)
         ->and($interview->mode)->toBe('voice');
+});
+
+test('hr can assign an interview using the sole active template without selecting one', function () {
+    $company = Company::factory()->create();
+    $hr = User::factory()->hrProfessional($company->id)->create();
+    $job = Job::factory()->create([
+        'user_id' => $hr->id,
+        'company_id' => $company->id,
+    ]);
+    $candidate = User::factory()->jobSeeker()->create();
+    $application = JobApplication::factory()->create([
+        'user_id' => $candidate->id,
+        'job_id' => $job->id,
+    ]);
+    $template = InterviewTemplate::factory()->create([
+        'user_id' => $hr->id,
+        'company_id' => $company->id,
+    ]);
+
+    $this->actingAs($hr)
+        ->from(route('review-candidates'))
+        ->post(route('review-candidates.interviews.store', $application), [])
+        ->assertRedirect(route('review-candidates'));
+
+    expect(Interview::where('job_application_id', $application->id)->value('interview_template_id'))
+        ->toBe($template->id);
+});
+
+test('hr can assign using the single job-specific template when a company-wide template also exists', function () {
+    $company = Company::factory()->create();
+    $hr = User::factory()->hrProfessional($company->id)->create();
+    $job = Job::factory()->create([
+        'user_id' => $hr->id,
+        'company_id' => $company->id,
+    ]);
+    $candidate = User::factory()->jobSeeker()->create();
+    $application = JobApplication::factory()->create([
+        'user_id' => $candidate->id,
+        'job_id' => $job->id,
+    ]);
+
+    InterviewTemplate::factory()->create([
+        'user_id' => $hr->id,
+        'company_id' => $company->id,
+        'job_id' => null,
+        'name' => 'Company default',
+    ]);
+
+    $jobTemplate = InterviewTemplate::factory()->create([
+        'user_id' => $hr->id,
+        'company_id' => $company->id,
+        'job_id' => $job->id,
+        'name' => 'Job specific',
+    ]);
+
+    $this->actingAs($hr)
+        ->from(route('review-candidates'))
+        ->post(route('review-candidates.interviews.store', $application), [])
+        ->assertRedirect(route('review-candidates'));
+
+    expect(Interview::where('job_application_id', $application->id)->value('interview_template_id'))
+        ->toBe($jobTemplate->id);
+});
+
+test('hr can reassign a pending interview to a different template', function () {
+    $company = Company::factory()->create();
+    $hr = User::factory()->hrProfessional($company->id)->create();
+    $job = Job::factory()->create([
+        'user_id' => $hr->id,
+        'company_id' => $company->id,
+    ]);
+    $candidate = User::factory()->jobSeeker()->create();
+    $application = JobApplication::factory()->create([
+        'user_id' => $candidate->id,
+        'job_id' => $job->id,
+    ]);
+
+    $originalTemplate = InterviewTemplate::factory()->create([
+        'user_id' => $hr->id,
+        'company_id' => $company->id,
+        'name' => 'Original template',
+    ]);
+
+    $replacementTemplate = InterviewTemplate::factory()->create([
+        'user_id' => $hr->id,
+        'company_id' => $company->id,
+        'name' => 'Replacement template',
+        'evaluation_criteria' => ['Leadership'],
+    ]);
+
+    $interview = Interview::factory()->create([
+        'interview_template_id' => $originalTemplate->id,
+        'job_application_id' => $application->id,
+        'job_id' => $job->id,
+        'candidate_id' => $candidate->id,
+        'status' => 'pending',
+    ]);
+
+    $this->actingAs($hr)
+        ->from(route('review-candidates'))
+        ->post(route('review-candidates.interviews.store', $application), [
+            'interview_template_id' => $replacementTemplate->id,
+        ])
+        ->assertRedirect(route('review-candidates'));
+
+    $interview = $interview->fresh();
+
+    expect($interview->interview_template_id)->toBe($replacementTemplate->id)
+        ->and($interview->criteria)->toBe(['Leadership'])
+        ->and(Interview::where('job_application_id', $application->id)->count())->toBe(1);
 });
 
 test('candidates can complete an assigned interview', function () {
