@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Http\RedirectResponse;
 
 class MockInterviewController extends Controller
 {
@@ -140,10 +141,14 @@ class MockInterviewController extends Controller
         return redirect()->route('mock-interview.session', $session);
     }
 
-    public function session(MockInterviewSession $session, MockInterviewQuestionService $questionService): Response
+    public function session(MockInterviewSession $session, MockInterviewQuestionService $questionService): Response|\Illuminate\Http\RedirectResponse
     {
         if ($session->user_id !== Auth::id()) {
             abort(403);
+        }
+
+        if ($session->status === 'completed') {
+            return redirect()->route('mock-interview.results', $session);
         }
 
         // Update status if pending
@@ -168,6 +173,21 @@ class MockInterviewController extends Controller
 
         return Inertia::render($viewName, [
             'session' => $session->fresh(),
+        ]);
+    }
+
+    public function results(MockInterviewSession $session): Response|RedirectResponse
+    {
+        if ($session->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        if ($session->status !== 'completed') {
+            return redirect()->route('mock-interview.session', $session);
+        }
+
+        return Inertia::render('job-seeker/MockInterviewResult', [
+            'session' => $session->toResultPayload(),
         ]);
     }
 
@@ -227,8 +247,8 @@ class MockInterviewController extends Controller
         $session->update($validated);
 
         if (isset($validated['status']) && $validated['status'] === 'completed') {
-            return redirect()->route('mock-interview')
-                ->with('success', 'Interview completed! Check your feedback and score.');
+            return redirect()->route('mock-interview.results', $session)
+                ->with('success', 'Interview completed! Your results are ready.');
         }
 
         return redirect()->back()->with('success', 'Interview session updated successfully.');

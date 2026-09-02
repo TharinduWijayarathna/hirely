@@ -10,10 +10,8 @@ import PlanQuotaNotice from '@/components/PlanQuotaNotice.vue';
 import { type PlanQuota } from '@/types/plan-quota';
 import InputError from '@/components/InputError.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { Video, Play, Mic, Clock, TrendingUp, CheckCircle2, TrendingDown, MessageSquare, Volume2, X } from 'lucide-vue-next';
+import { Video, Play, Mic, Clock, TrendingUp, CheckCircle2, MessageSquare, Volume2 } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import InterviewEvaluationPanel, { type InterviewEvaluation } from '@/components/InterviewEvaluationPanel.vue';
 
 const props = defineProps<{
     sessions?: Array<{
@@ -22,9 +20,6 @@ const props = defineProps<{
         difficulty: string;
         status: string;
         score?: number;
-        feedback?: Record<string, any>;
-        evaluation?: InterviewEvaluation | null;
-        answers?: Record<string, string>;
         completed_at?: string;
         created_at: string;
     }>;
@@ -118,48 +113,6 @@ const formatTime = (minutes: number) => {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-};
-
-const selectedResult = ref<typeof props.sessions extends Array<infer T> ? T : never | null>(null);
-const isResultDialogOpen = ref(false);
-
-const legacyEvaluation = (session: NonNullable<typeof props.sessions>[number]): InterviewEvaluation | null => {
-    if (session.evaluation) {
-        return session.evaluation;
-    }
-
-    if (!session.feedback) {
-        return null;
-    }
-
-    const answers = Object.entries(session.feedback)
-        .filter(([question]) => question !== 'overall')
-        .map(([question, feedback]) => ({
-            question,
-            score: 0,
-            feedback: String(feedback),
-            answer: session.answers?.[question] ?? '',
-        }));
-
-    if (answers.length === 0) {
-        return null;
-    }
-
-    return {
-        overall_score: session.score,
-        rationale: session.feedback.overall ? String(session.feedback.overall) : undefined,
-        answers,
-    };
-};
-
-const openResults = (session: any) => {
-    selectedResult.value = session;
-    isResultDialogOpen.value = true;
-};
-
-const closeResults = () => {
-    selectedResult.value = null;
-    isResultDialogOpen.value = false;
 };
 </script>
 
@@ -353,9 +306,11 @@ const closeResults = () => {
                                         v-if="session.status === 'completed'"
                                         variant="outline"
                                         size="sm"
-                                        @click="openResults(session)"
+                                        as-child
                                     >
-                                        View Results
+                                        <Link :href="mockInterviewRoutes.results(session.id).url">
+                                            View Results
+                                        </Link>
                                     </Button>
                                     <Button
                                         v-else-if="session.status === 'in_progress'"
@@ -374,24 +329,6 @@ const closeResults = () => {
                 </Card>
             </div>
         </div>
-
-        <!-- Results Dialog -->
-        <Dialog :open="isResultDialogOpen" @update:open="(val) => { if (!val) closeResults(); }">
-            <DialogContent class="max-w-3xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>Interview Results</DialogTitle>
-                    <DialogDescription>
-                        {{ selectedResult ? getTypeLabel(selectedResult.type) : '' }} Interview - {{ selectedResult ? getDifficultyLabel(selectedResult.difficulty) : '' }}
-                    </DialogDescription>
-                </DialogHeader>
-                <div v-if="selectedResult" class="space-y-6 mt-4">
-                    <InterviewEvaluationPanel
-                        :evaluation="legacyEvaluation(selectedResult)"
-                        :score="selectedResult.score"
-                    />
-                </div>
-            </DialogContent>
-        </Dialog>
     </AppLayout>
 </template>
 

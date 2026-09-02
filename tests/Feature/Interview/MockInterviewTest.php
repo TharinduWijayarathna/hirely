@@ -78,3 +78,44 @@ test('mock interviews generate ten categorized cv-based questions in one request
         && str_contains($request->body(), 'Engineer')
         && ! str_contains($request->body(), 'inlineData'));
 });
+
+test('completed mock interviews open a dedicated results page', function () {
+    $seeker = User::factory()->jobSeeker()->create();
+    $session = MockInterviewSession::create([
+        'user_id' => $seeker->id,
+        'type' => 'mixed',
+        'difficulty' => 'intermediate',
+        'mode' => 'text',
+        'status' => 'completed',
+        'score' => 72,
+        'completed_at' => now(),
+        'answers' => ['What is REST?' => 'Representational state transfer'],
+        'evaluation' => [
+            'overall_score' => 72,
+            'rationale' => 'Solid REST knowledge.',
+            'answers' => [
+                [
+                    'question' => 'What is REST?',
+                    'category' => 'technical',
+                    'score' => 72,
+                    'feedback' => 'Good answer.',
+                    'answer' => 'Representational state transfer',
+                ],
+            ],
+        ],
+    ]);
+
+    $this->actingAs($seeker)
+        ->get(route('mock-interview.results', $session))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('job-seeker/MockInterviewResult')
+            ->where('session.id', $session->id)
+            ->where('session.score', 72)
+            ->has('session.evaluation.answers', 1)
+        );
+
+    $this->actingAs($seeker)
+        ->get(route('mock-interview.session', $session))
+        ->assertRedirect(route('mock-interview.results', $session));
+});

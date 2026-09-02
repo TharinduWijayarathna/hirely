@@ -149,7 +149,7 @@ const completeInterview = () => {
         },
         {
             onSuccess: () => {
-                router.visit(mockInterview().url);
+                router.visit(mockInterviewRoutes.results(props.session?.id || 0).url);
             },
         }
     );

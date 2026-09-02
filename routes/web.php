@@ -86,6 +86,7 @@ Route::middleware(['auth', 'verified', 'role:job_seeker'])->group(function () {
 
     Route::get('mock-interview', [MockInterviewController::class, 'index'])->name('mock-interview');
     Route::post('mock-interview', [MockInterviewController::class, 'store'])->name('mock-interview.store');
+    Route::get('mock-interview/{session}/results', [MockInterviewController::class, 'results'])->name('mock-interview.results');
     Route::get('mock-interview/{session}', [MockInterviewController::class, 'session'])->name('mock-interview.session');
     Route::put('mock-interview/{session}', [MockInterviewController::class, 'update'])->name('mock-interview.update');
     Route::post('mock-interview/{session}/follow-up', [MockInterviewController::class, 'followUp'])->name('mock-interview.follow-up');
