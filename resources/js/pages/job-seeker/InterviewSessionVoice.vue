@@ -69,12 +69,7 @@ const { isSpeaking, ttsError, activateTTS, speakText: playSpeech, stopSpeaking: 
 
 const {
     videoRef,
-    cameraReady,
     isRecording,
-    screenshotCount,
-    previews,
-    flash,
-    lastCapturedAt,
     error: cameraError,
     start: startCapture,
     takeScreenshot,
@@ -396,9 +391,6 @@ onUnmounted(() => {
                         Question {{ Math.min(currentIndex + 1, totalQuestions) }} of {{ totalQuestions }}
                     </span>
                     <span v-if="isRecording" class="dash-badge dash-badge-rejected">Recording</span>
-                    <span v-if="screenshotCount > 0" class="dash-badge dash-badge-reviewing">
-                        {{ screenshotCount }} screenshots
-                    </span>
                 </div>
             </div>
 
@@ -406,33 +398,16 @@ onUnmounted(() => {
                 <div class="space-y-3">
                     <div class="relative overflow-hidden rounded-2xl border border-border bg-black">
                         <video ref="videoRef" class="aspect-video w-full object-cover" autoplay muted playsinline />
-                        <div
-                            v-if="flash"
-                            class="pointer-events-none absolute inset-0 bg-white/80 transition-opacity"
-                        />
-                        <div v-if="flash" class="absolute left-3 top-3 rounded-full bg-black/70 px-3 py-1 text-xs text-white">
-                            Screenshot taken
-                        </div>
-                        <div v-else-if="isRecording" class="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-red-600 px-3 py-1 text-xs text-white">
+                        <div v-if="isRecording" class="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-red-600 px-3 py-1 text-xs text-white">
                             <Camera class="h-3 w-3" />
                             Live
                         </div>
                     </div>
                     <p class="text-xs text-muted-foreground">
-                        Random stills of you are taken throughout the interview and saved for HR review.
-                        <span v-if="lastCapturedAt"> Last capture {{ lastCapturedAt }}.</span>
+                        Camera and microphone are required for this interview.
                     </p>
                     <p v-if="cameraError" class="text-sm text-destructive">{{ cameraError }}</p>
                     <p v-if="ttsError" class="text-sm text-destructive">{{ ttsError }}</p>
-                    <div v-if="previews.length" class="grid grid-cols-4 gap-2">
-                        <img
-                            v-for="preview in previews"
-                            :key="preview.url"
-                            :src="preview.url"
-                            :alt="preview.label"
-                            class="aspect-video w-full rounded-lg border border-border object-cover"
-                        />
-                    </div>
                 </div>
 
                 <Card class="flex flex-1 flex-col shadow-sm">
@@ -448,8 +423,7 @@ onUnmounted(() => {
                     <CardContent class="flex flex-1 flex-col space-y-5">
                         <div v-if="!started" class="flex flex-1 flex-col items-center justify-center gap-4 py-10 text-center">
                             <p class="max-w-md text-sm text-muted-foreground">
-                                Allow camera and microphone. The interviewer will speak {{ totalQuestions }} questions,
-                                record the session, and take random screenshots of you.
+                                Allow camera and microphone. The interviewer will speak {{ totalQuestions }} questions and record the session.
                             </p>
                             <Button size="lg" class="gap-2" @click="startInterview">
                                 <Play class="h-5 w-5" />

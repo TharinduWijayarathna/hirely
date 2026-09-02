@@ -160,14 +160,6 @@ class Interview extends Model
             'completed_at' => $this->completed_at?->toIso8601String(),
             'duration_minutes' => $this->duration_minutes,
             'recording_url' => $this->recording_path ? '/interview-media/'.$this->id.'/recording' : null,
-            'screenshots' => collect($this->screenshots ?? [])
-                ->values()
-                ->map(fn (array $shot, int $index) => [
-                    'url' => '/interview-media/'.$this->id.'/screenshots/'.$index,
-                    'label' => $shot['label'] ?? 'capture',
-                    'captured_at' => $shot['captured_at'] ?? null,
-                ])
-                ->all(),
             'created_at' => $this->created_at?->toIso8601String(),
             'job' => $this->job ? [
                 'id' => $this->job->id,
@@ -185,6 +177,14 @@ class Interview extends Model
         ];
 
         if ($forHr) {
+            $payload['screenshots'] = collect($this->screenshots ?? [])
+                ->values()
+                ->map(fn (array $shot, int $index) => [
+                    'url' => '/interview-media/'.$this->id.'/screenshots/'.$index,
+                    'label' => $shot['label'] ?? 'capture',
+                    'captured_at' => $shot['captured_at'] ?? null,
+                ])
+                ->all();
             $payload['human_notes'] = $this->human_notes;
             $payload['review_audit'] = $this->review_audit ?? [];
             $payload['reviewed_by'] = $this->reviewer ? [

@@ -190,9 +190,33 @@ test('hr can review the recording and outsiders cannot', function () {
         ->get(route('interview-media.recording', $setup['interview']))
         ->assertOk();
 
+    $this->actingAs($setup['candidate'])
+        ->get(route('interview-media.recording', $setup['interview']))
+        ->assertOk();
+
     $outsider = User::factory()->hrProfessional()->create();
 
     $this->actingAs($outsider)
         ->get(route('interview-media.recording', $setup['interview']))
         ->assertForbidden();
+});
+
+test('candidates cannot view interview screenshots', function () {
+    Storage::fake('local');
+    $setup = voiceInterviewSetup();
+    $media = app(\App\Services\InterviewMediaService::class);
+
+    $media->storeScreenshot($setup['interview'], UploadedFile::fake()->image('face.jpg', 640, 360), 'session_start');
+
+    $payload = $setup['interview']->fresh()->toResultPayload(false);
+
+    expect($payload)->not->toHaveKey('screenshots');
+
+    $this->actingAs($setup['candidate'])
+        ->get(route('interview-media.screenshot', [$setup['interview'], 0]))
+        ->assertForbidden();
+
+    $this->actingAs($setup['hr'])
+        ->get(route('interview-media.screenshot', [$setup['interview'], 0]))
+        ->assertOk();
 });

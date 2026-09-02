@@ -294,6 +294,7 @@ test('completed interviews show a result page to the candidate without hr notes'
             ->where('interview.score', 72)
             ->missing('interview.human_notes')
             ->missing('interview.review_audit')
+            ->missing('interview.screenshots')
         );
 });
 

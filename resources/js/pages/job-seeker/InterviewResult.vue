@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import AppLayout from '@/layouts/AppLayout.vue';
-import InterviewRecordingPanel from '@/components/InterviewRecordingPanel.vue';
 import InterviewEvaluationPanel, { type InterviewEvaluation } from '@/components/InterviewEvaluationPanel.vue';
 import { interviews } from '@/routes';
 import interviewsRoutes from '@/routes/interviews';
@@ -19,8 +18,6 @@ const props = defineProps<{
         evaluation?: InterviewEvaluation | null;
         job?: { title: string } | null;
         template?: { name: string } | null;
-        recording_url?: string | null;
-        screenshots?: Array<{ url: string; label?: string; captured_at?: string | null }>;
     };
 }>();
 
@@ -49,11 +46,6 @@ const breadcrumbs: BreadcrumbItem[] = [
                     </Link>
                 </Button>
             </div>
-
-            <InterviewRecordingPanel
-                :recording-url="interview.recording_url"
-                :screenshots="interview.screenshots"
-            />
 
             <InterviewEvaluationPanel
                 :evaluation="interview.evaluation"

@@ -25,7 +25,7 @@ class InterviewMediaController extends Controller
 
     public function screenshot(Interview $interview, int $index, InterviewMediaService $media): StreamedResponse
     {
-        $this->authorizeMedia($interview);
+        abort_unless(Auth::user()->canAccessInterview($interview), 403);
 
         $path = $media->screenshotPath($interview, $index);
 
