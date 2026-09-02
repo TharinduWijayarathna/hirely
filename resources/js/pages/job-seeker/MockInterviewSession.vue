@@ -8,6 +8,7 @@ import mockInterviewRoutes from '@/routes/mock-interview';
 import { type BreadcrumbItem } from '@/types';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import { CheckCircle2, ArrowRight, ArrowLeft, Mic, Loader2 } from 'lucide-vue-next';
+import InputError from '@/components/InputError.vue';
 import { ref, computed, watch } from 'vue';
 
 type InterviewQuestion = string | { category?: string; text: string; follow_up?: boolean };
@@ -176,6 +177,8 @@ const completeInterview = () => {
                     </span>
                 </div>
             </div>
+
+            <InputError :message="errors.ai" />
 
             <!-- Interview Card -->
             <Card class="shadow-sm">

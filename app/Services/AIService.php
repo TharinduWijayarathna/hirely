@@ -401,9 +401,21 @@ Keep your responses natural and conversational.";
             }
         } catch (\Exception $e) {
             Log::error('Interview evaluation error: '.$e->getMessage());
+
+            throw new \RuntimeException(
+                $this->lastFailure ?: 'Gemini could not evaluate this interview. Check your API key and try again.',
+                previous: $e,
+            );
         }
 
-        return $this->heuristicEvaluation($questions, $answers, $criteria);
+        throw new \RuntimeException(
+            $this->lastFailure ?: 'Gemini could not evaluate this interview. Check your API key and try again.',
+        );
+    }
+
+    public function lastFailureReason(): ?string
+    {
+        return $this->lastFailure;
     }
 
     /**

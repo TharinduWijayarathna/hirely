@@ -268,8 +268,10 @@ class InterviewController extends Controller
                 try {
                     $evaluated = $evaluationService->complete($interview, $validated['answers']);
                     $validated = array_merge($validated, $evaluated);
-                } catch (\Exception $e) {
-                    Log::error('Recruitment interview evaluation failed: '.$e->getMessage());
+                } catch (\RuntimeException $e) {
+                    return redirect()->back()->withErrors([
+                        'ai' => $e->getMessage(),
+                    ]);
                 }
             } else {
                 $history = $validated['conversation_history'] ?? $interview->conversation_history ?? [];
@@ -278,8 +280,10 @@ class InterviewController extends Controller
                     try {
                         $evaluated = $evaluationService->complete($interview, $answers);
                         $validated = array_merge($validated, $evaluated);
-                    } catch (\Exception $e) {
-                        Log::error('Recruitment interview evaluation failed: '.$e->getMessage());
+                    } catch (\RuntimeException $e) {
+                        return redirect()->back()->withErrors([
+                            'ai' => $e->getMessage(),
+                        ]);
                     }
                 }
             }

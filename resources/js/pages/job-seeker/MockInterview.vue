@@ -13,6 +13,7 @@ import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { Video, Play, Mic, Clock, TrendingUp, CheckCircle2, TrendingDown, MessageSquare, Volume2, X } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import InterviewEvaluationPanel, { type InterviewEvaluation } from '@/components/InterviewEvaluationPanel.vue';
 
 const props = defineProps<{
     sessions?: Array<{
@@ -22,6 +23,8 @@ const props = defineProps<{
         status: string;
         score?: number;
         feedback?: Record<string, any>;
+        evaluation?: InterviewEvaluation | null;
+        answers?: Record<string, string>;
         completed_at?: string;
         created_at: string;
     }>;
@@ -117,8 +120,37 @@ const formatTime = (minutes: number) => {
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 };
 
-const selectedResult = ref<any>(null);
+const selectedResult = ref<typeof props.sessions extends Array<infer T> ? T : never | null>(null);
 const isResultDialogOpen = ref(false);
+
+const legacyEvaluation = (session: NonNullable<typeof props.sessions>[number]): InterviewEvaluation | null => {
+    if (session.evaluation) {
+        return session.evaluation;
+    }
+
+    if (!session.feedback) {
+        return null;
+    }
+
+    const answers = Object.entries(session.feedback)
+        .filter(([question]) => question !== 'overall')
+        .map(([question, feedback]) => ({
+            question,
+            score: 0,
+            feedback: String(feedback),
+            answer: session.answers?.[question] ?? '',
+        }));
+
+    if (answers.length === 0) {
+        return null;
+    }
+
+    return {
+        overall_score: session.score,
+        rationale: session.feedback.overall ? String(session.feedback.overall) : undefined,
+        answers,
+    };
+};
 
 const openResults = (session: any) => {
     selectedResult.value = session;
@@ -353,42 +385,10 @@ const closeResults = () => {
                     </DialogDescription>
                 </DialogHeader>
                 <div v-if="selectedResult" class="space-y-6 mt-4">
-                    <!-- Score -->
-                    <div class="p-4 bg-primary/5 rounded-lg">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-sm text-muted-foreground">Overall Score</p>
-                                <p class="text-3xl font-bold mt-1">
-                                    {{ selectedResult.score !== null && selectedResult.score !== undefined ? Math.round(selectedResult.score) : 'N/A' }}/100
-                                </p>
-                            </div>
-                            <TrendingUp class="h-12 w-12 text-primary" />
-                        </div>
-                    </div>
-
-                    <!-- Overall Feedback -->
-                    <div v-if="selectedResult.feedback && selectedResult.feedback.overall" class="p-4 border rounded-lg">
-                        <h3 class="font-semibold mb-2">Overall Feedback</h3>
-                        <p class="text-sm text-muted-foreground whitespace-pre-wrap">{{ selectedResult.feedback.overall }}</p>
-                    </div>
-
-                    <!-- Question-by-Question Feedback -->
-                    <div v-if="selectedResult.feedback" class="space-y-4">
-                        <h3 class="font-semibold">Detailed Feedback</h3>
-                        <div
-                            v-for="(feedback, question) in selectedResult.feedback"
-                            :key="String(question)"
-                            v-show="String(question) !== 'overall'"
-                            class="p-4 border rounded-lg"
-                        >
-                            <p class="font-medium mb-2">{{ question }}</p>
-                            <p class="text-sm text-muted-foreground whitespace-pre-wrap">{{ feedback }}</p>
-                        </div>
-                    </div>
-
-                    <div v-else class="text-sm text-muted-foreground text-center py-4">
-                        No detailed feedback available yet.
-                    </div>
+                    <InterviewEvaluationPanel
+                        :evaluation="legacyEvaluation(selectedResult)"
+                        :score="selectedResult.score"
+                    />
                 </div>
             </DialogContent>
         </Dialog>

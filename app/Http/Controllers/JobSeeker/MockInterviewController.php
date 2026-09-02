@@ -209,13 +209,17 @@ class MockInterviewController extends Controller
                         $validated['score'] = $feedback['overall_score'];
                     }
 
-                    // Store overall feedback in feedback array
+                    if (isset($feedback['evaluation'])) {
+                        $validated['evaluation'] = $feedback['evaluation'];
+                    }
+
                     if (isset($feedback['overall_feedback'])) {
                         $validated['feedback']['overall'] = $feedback['overall_feedback'];
                     }
-                } catch (\Exception $e) {
-                    // If AI feedback generation fails, continue without it
-                    Log::error('AI feedback generation failed: '.$e->getMessage());
+                } catch (\RuntimeException $e) {
+                    return redirect()->back()->withErrors([
+                        'ai' => $e->getMessage(),
+                    ]);
                 }
             }
         }

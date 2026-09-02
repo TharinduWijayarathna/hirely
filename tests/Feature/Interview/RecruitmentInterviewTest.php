@@ -6,6 +6,7 @@ use App\Models\InterviewTemplate;
 use App\Models\Job;
 use App\Models\JobApplication;
 use App\Models\User;
+use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
     config(['services.gemini.api_key' => '']);
@@ -89,6 +90,14 @@ test('hr can assign a recruitment interview to an applicant', function () {
 });
 
 test('candidates can complete an assigned interview', function () {
+    fakeGeminiInterviewEvaluation([
+        'overall_score' => 78,
+        'rationale' => 'Clear REST explanation.',
+        'answers' => [
+            ['question' => 'What is REST?', 'category' => 'technical', 'score' => 78, 'feedback' => 'Good answer.', 'evidence' => 'Representational state transfer'],
+        ],
+    ]);
+
     $company = Company::factory()->create();
     $hr = User::factory()->hrProfessional($company->id)->create();
     $job = Job::factory()->create([
@@ -133,6 +142,7 @@ test('candidates can complete an assigned interview', function () {
         ->and($interview->evaluation['strengths'] ?? null)->toBeArray()
         ->and($interview->evaluation['weaknesses'] ?? null)->toBeArray()
         ->and($interview->evaluation['dimensions'] ?? null)->toBeArray()
+        ->and($interview->evaluation['answers'][0]['answer'] ?? null)->toBe('Representational state transfer')
         ->and($interview->ai_score)->not->toBeNull()
         ->and((float) $interview->score)->toBe((float) $interview->ai_score);
 });
@@ -271,6 +281,13 @@ test('job seekers cannot open hr interview results', function () {
 });
 
 test('criterion weights are snapshotted and applied to the overall score', function () {
+    fakeGeminiInterviewEvaluation([
+        'dimensions' => [
+            ['name' => 'Technical depth', 'score' => 90, 'weight' => 1, 'evidence' => 'Representational state transfer', 'comment' => 'Strong'],
+            ['name' => 'Communication', 'score' => 50, 'weight' => 1, 'evidence' => 'Representational state transfer', 'comment' => 'Basic'],
+        ],
+    ]);
+
     $company = Company::factory()->create();
     $hr = User::factory()->hrProfessional($company->id)->create();
     $job = Job::factory()->create([
@@ -499,6 +516,8 @@ test('assigned interviews open the voice assistant with the question script', fu
 });
 
 test('voice recruitment interviews store conversation turns and complete from history', function () {
+    fakeGeminiInterviewEvaluation();
+
     $company = Company::factory()->create();
     $hr = User::factory()->hrProfessional($company->id)->create();
     $job = Job::factory()->create([
@@ -550,6 +569,41 @@ test('voice recruitment interviews store conversation turns and complete from hi
         ->and($interview->evaluation)->not->toBeEmpty()
         ->and($application->fresh()->status)->toBe('interviewed');
 });
+
+/**
+ * @param  array<string, mixed>  $overrides
+ */
+function fakeGeminiInterviewEvaluation(array $overrides = []): void
+{
+    config(['services.gemini.api_key' => 'gemini-test']);
+
+    $payload = array_merge([
+        'overall_score' => 78,
+        'rationale' => 'Solid interview performance.',
+        'confidence' => 0.82,
+        'strengths' => ['Clear communication'],
+        'weaknesses' => ['Could add more examples'],
+        'dimensions' => [
+            ['name' => 'Technical depth', 'score' => 80, 'weight' => 1, 'evidence' => 'Representational state transfer', 'comment' => 'Solid'],
+            ['name' => 'Communication', 'score' => 75, 'weight' => 1, 'evidence' => 'Representational state transfer', 'comment' => 'Clear'],
+        ],
+        'answers' => [
+            ['question' => 'What is REST?', 'category' => 'technical', 'score' => 78, 'feedback' => 'Good answer.', 'evidence' => 'Representational state transfer'],
+        ],
+    ], $overrides);
+
+    Http::fake([
+        'generativelanguage.googleapis.com/*' => Http::response([
+            'candidates' => [[
+                'content' => [
+                    'parts' => [[
+                        'text' => json_encode($payload),
+                    ]],
+                ],
+            ]],
+        ]),
+    ]);
+}
 
 /**
  * @param  array<string, mixed>  $overrides

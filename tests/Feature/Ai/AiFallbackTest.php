@@ -36,26 +36,29 @@ test('configured interview questions fall back by category when gemini is unset'
         ->and($questions[2]['text'])->toContain('project');
 });
 
-test('interview evaluation uses the heuristic fallback when the gemini request fails', function () {
-    config(['services.gemini.api_key' => 'gemini-test']);
-    Http::fake(['*' => Http::response(['error' => 'unavailable'], 500)]);
+test('interview evaluation requires gemini and does not use a heuristic fallback', function () {
+    config(['services.gemini.api_key' => '']);
 
-    $evaluation = (new AIService)->evaluateInterview(
+    expect(fn () => (new AIService)->evaluateInterview(
         [['category' => 'technical', 'text' => 'What is REST?']],
         ['What is REST?' => 'Representational state transfer with resources and verbs.'],
         'intermediate',
         ['Technical depth', 'Communication'],
         'Backend Engineer',
-    );
+    ))->toThrow(\RuntimeException::class, 'GEMINI_API_KEY is not set');
+});
 
-    expect($evaluation['overall_score'])->toBeInt()
-        ->and($evaluation['overall_score'])->toBeGreaterThan(40)
-        ->and($evaluation['confidence'])->toBe(0.35)
-        ->and($evaluation['rationale'])->toContain('without the AI provider')
-        ->and($evaluation['strengths'])->toBeArray()
-        ->and($evaluation['weaknesses'])->toBeArray()
-        ->and($evaluation['dimensions'])->toHaveCount(2)
-        ->and($evaluation['answers'][0]['evidence'])->toContain('Representational');
+test('interview evaluation throws when the gemini request fails', function () {
+    config(['services.gemini.api_key' => 'gemini-test']);
+    Http::fake(['*' => Http::response(['error' => 'unavailable'], 500)]);
+
+    expect(fn () => (new AIService)->evaluateInterview(
+        [['category' => 'technical', 'text' => 'What is REST?']],
+        ['What is REST?' => 'Representational state transfer with resources and verbs.'],
+        'intermediate',
+        ['Technical depth', 'Communication'],
+        'Backend Engineer',
+    ))->toThrow(\RuntimeException::class);
 });
 
 test('cv analysis fails without gemini instead of parsing the file locally', function () {
