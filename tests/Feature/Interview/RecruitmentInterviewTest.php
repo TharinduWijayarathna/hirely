@@ -69,6 +69,7 @@ test('hr can assign a recruitment interview to an applicant', function () {
     $template = InterviewTemplate::factory()->create([
         'user_id' => $hr->id,
         'company_id' => $company->id,
+        'question_count' => 5,
         'evaluation_criteria' => ['Technical depth', 'Role fit'],
     ]);
 
@@ -84,7 +85,7 @@ test('hr can assign a recruitment interview to an applicant', function () {
     expect($interview)->not->toBeNull()
         ->and($interview->candidate_id)->toBe($candidate->id)
         ->and($interview->questions)->not->toBeEmpty()
-        ->and($interview->questions)->toHaveCount(10)
+        ->and($interview->questions)->toHaveCount(5)
         ->and($interview->criteria)->toBe(['Technical depth', 'Role fit'])
         ->and($interview->question_weights['Technical depth'] ?? null)->toBe(40)
         ->and($interview->mode)->toBe('voice');

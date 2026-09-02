@@ -51,7 +51,7 @@ class InterviewController extends Controller
 
         if (($interview->questions ?? []) === []) {
             $template = $interview->template;
-            $count = max(10, (int) ($template?->question_count ?? 10));
+            $count = max(1, (int) ($template?->question_count ?? 5));
             $interview->update([
                 'questions' => $aiService->fallbackConfiguredQuestions(
                     $interview->difficulty,

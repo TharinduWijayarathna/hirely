@@ -53,7 +53,7 @@ class InterviewAssignmentService
             fn ($item) => is_string($item) && trim($item) !== ''
         ));
 
-        $questionCount = max(10, (int) $template->question_count);
+        $questionCount = max(1, (int) $template->question_count);
 
         return [
             'interview_template_id' => $template->id,
