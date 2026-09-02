@@ -64,7 +64,7 @@ const breadcrumbs: BreadcrumbItem[] = [
             <InterviewEvaluationPanel
                 :evaluation="session.evaluation"
                 :score="session.score"
-                :ai-score="session.score"
+                :show-review="false"
             />
         </div>
     </AppLayout>

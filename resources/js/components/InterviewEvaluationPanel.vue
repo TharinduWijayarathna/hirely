@@ -28,13 +28,16 @@ export type InterviewEvaluation = {
     answers?: EvaluationAnswer[];
 };
 
-defineProps<{
+const props = withDefaults(defineProps<{
     evaluation?: InterviewEvaluation | null;
     score?: number | null;
     aiScore?: number | null;
     humanScore?: number | null;
     reviewStatus?: string | null;
-}>();
+    showReview?: boolean;
+}>(), {
+    showReview: true,
+});
 
 const reviewLabel = (status?: string | null) => {
     const labels: Record<string, string> = {
@@ -50,20 +53,20 @@ const reviewLabel = (status?: string | null) => {
 
 <template>
     <div class="space-y-6">
-        <div class="grid gap-4 md:grid-cols-3">
+        <div class="grid gap-4" :class="props.showReview ? 'md:grid-cols-3' : 'md:grid-cols-1 max-w-sm'">
             <Card class="shadow-sm">
                 <CardHeader>
-                    <CardDescription>Effective score</CardDescription>
+                    <CardDescription>{{ props.showReview ? 'Effective score' : 'Score' }}</CardDescription>
                     <CardTitle class="text-3xl">{{ score != null ? `${score}/100` : '—' }}</CardTitle>
                 </CardHeader>
             </Card>
-            <Card class="shadow-sm">
+            <Card v-if="props.showReview" class="shadow-sm">
                 <CardHeader>
                     <CardDescription>AI score</CardDescription>
                     <CardTitle class="text-3xl">{{ aiScore != null ? `${aiScore}/100` : '—' }}</CardTitle>
                 </CardHeader>
             </Card>
-            <Card class="shadow-sm">
+            <Card v-if="props.showReview" class="shadow-sm">
                 <CardHeader>
                     <CardDescription>Review</CardDescription>
                     <CardTitle class="text-lg">{{ reviewLabel(reviewStatus) }}</CardTitle>
