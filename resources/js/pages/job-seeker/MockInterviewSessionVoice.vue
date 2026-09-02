@@ -78,7 +78,7 @@ const totalQuestions = computed(() => questions.value.length);
 const isLastQuestion = computed(() => currentIndex.value >= totalQuestions.value - 1);
 const answeredCount = computed(() => Object.values(answers.value).filter((value) => value.trim() !== '').length);
 
-const { isSpeaking, activateTTS, speakText: playSpeech, stopSpeaking: stopTts } = useGoogleTts(
+const { isSpeaking, ttsError, activateTTS, speakText: playSpeech, stopSpeaking: stopTts } = useGoogleTts(
     `/mock-interview/${props.session?.id}/speech`,
 );
 
@@ -383,6 +383,7 @@ onUnmounted(() => {
                     </CardDescription>
                 </CardHeader>
                 <CardContent class="flex flex-1 flex-col space-y-5">
+                    <p v-if="ttsError" class="text-sm text-destructive">{{ ttsError }}</p>
                     <div v-if="!started" class="flex flex-1 flex-col items-center justify-center gap-4 py-10 text-center">
                         <p class="max-w-md text-sm text-muted-foreground">
                             The interviewer will speak {{ totalQuestions }} questions generated from your CV. Allow the microphone, then start.

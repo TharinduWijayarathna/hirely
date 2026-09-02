@@ -136,7 +136,7 @@ const aiFeatures = [
         icon: Mic,
         title: 'Voice interviews',
         description: 'Conversational AI interviews using speech recognition and synthesis for a natural, real-world practice experience.',
-        points: ['Web Speech API powered', 'Dynamic follow-ups', 'Recruitment & mock modes'],
+        points: ['Google Cloud TTS powered', 'Dynamic follow-ups', 'Recruitment & mock modes'],
     },
     {
         icon: ClipboardList,

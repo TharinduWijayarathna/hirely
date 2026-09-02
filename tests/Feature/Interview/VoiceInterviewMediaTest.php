@@ -39,7 +39,7 @@ function voiceInterviewSetup(): array
     return compact('company', 'hr', 'job', 'candidate', 'application', 'interview');
 }
 
-test('voice interviews fall back when google tts is not configured', function () {
+test('voice interviews return an error when google tts is not configured', function () {
     config(['services.google.tts_api_key' => '']);
 
     $setup = voiceInterviewSetup();
@@ -49,7 +49,7 @@ test('voice interviews fall back when google tts is not configured', function ()
             'text' => 'Tell me about a recent Laravel project.',
         ])
         ->assertStatus(422)
-        ->assertJson(['fallback' => true]);
+        ->assertJson(['message' => 'Google Text-to-Speech is not configured.']);
 });
 
 test('voice interviews speak through the google tts api', function () {

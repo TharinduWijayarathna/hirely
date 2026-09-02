@@ -207,7 +207,9 @@ class InterviewController extends Controller
         $audio = $tts->synthesize($validated['text']);
 
         if ($audio === null) {
-            return response()->json(['fallback' => true], 422);
+            return response()->json([
+                'message' => 'Google Text-to-Speech is not configured.',
+            ], 422);
         }
 
         return response($audio, 200, [

@@ -63,7 +63,7 @@ const totalQuestions = computed(() => questions.value.length);
 const isLastQuestion = computed(() => currentIndex.value >= totalQuestions.value - 1);
 const answeredCount = computed(() => Object.values(answers.value).filter((value) => value.trim() !== '').length);
 
-const { isSpeaking, activateTTS, speakText: playSpeech, stopSpeaking: stopTts } = useGoogleTts(
+const { isSpeaking, ttsError, activateTTS, speakText: playSpeech, stopSpeaking: stopTts } = useGoogleTts(
     `/interviews/${props.interview.id}/speech`,
 );
 
@@ -406,6 +406,7 @@ onUnmounted(() => {
                         <span v-if="lastCapturedAt"> Last capture {{ lastCapturedAt }}.</span>
                     </p>
                     <p v-if="cameraError" class="text-sm text-destructive">{{ cameraError }}</p>
+                    <p v-if="ttsError" class="text-sm text-destructive">{{ ttsError }}</p>
                     <div v-if="previews.length" class="grid grid-cols-4 gap-2">
                         <img
                             v-for="preview in previews"
