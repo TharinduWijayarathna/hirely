@@ -118,6 +118,13 @@ class InterviewController extends Controller
             'status' => 'in_progress',
         ]);
 
+        if ($request->wantsJson()) {
+            return response()->json([
+                'questions' => $questions,
+                'answers' => $answers,
+            ]);
+        }
+
         return redirect()->route('interviews.show', $interview);
     }
 

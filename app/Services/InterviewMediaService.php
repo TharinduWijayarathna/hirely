@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Interview;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class InterviewMediaService
@@ -12,23 +13,26 @@ class InterviewMediaService
 
     public function storeScreenshot(Interview $interview, UploadedFile $file, ?string $label = null): array
     {
-        $shots = $interview->screenshots ?? [];
+        return DB::transaction(function () use ($interview, $file, $label) {
+            $locked = Interview::query()->lockForUpdate()->findOrFail($interview->id);
+            $shots = $locked->screenshots ?? [];
 
-        if (count($shots) >= self::MAX_SCREENSHOTS) {
+            if (count($shots) >= self::MAX_SCREENSHOTS) {
+                return $shots;
+            }
+
+            $path = $file->store("interviews/{$interview->id}/screenshots", 'local');
+
+            $shots[] = [
+                'path' => $path,
+                'label' => $label ?: 'capture',
+                'captured_at' => now()->toIso8601String(),
+            ];
+
+            $locked->update(['screenshots' => $shots]);
+
             return $shots;
-        }
-
-        $path = $file->store("interviews/{$interview->id}/screenshots", 'local');
-
-        $shots[] = [
-            'path' => $path,
-            'label' => $label ?: 'capture',
-            'captured_at' => now()->toIso8601String(),
-        ];
-
-        $interview->update(['screenshots' => $shots]);
-
-        return $shots;
+        });
     }
 
     public function storeRecording(Interview $interview, UploadedFile $file): string

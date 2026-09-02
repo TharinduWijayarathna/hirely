@@ -119,6 +119,66 @@ test('candidates can upload a random identity still during a voice interview', f
         ->and($shot['captured_at'])->not->toBeEmpty();
 });
 
+test('follow up requests can return json without redirecting the voice session', function () {
+    $setup = voiceInterviewSetup();
+    $question = 'Describe a production incident you owned.';
+
+    $setup['interview']->update([
+        'questions' => [
+            ['category' => 'technical', 'text' => $question],
+        ],
+    ]);
+
+    $response = $this->actingAs($setup['candidate'])
+        ->postJson(route('interviews.follow-up', $setup['interview']), [
+            'question' => $question,
+            'answer' => 'I rolled back the deployment and restored service.',
+            'answers' => [
+                $question => 'I rolled back the deployment and restored service.',
+            ],
+        ])
+        ->assertOk();
+
+    expect($response->json('answers')[$question])->toBe('I rolled back the deployment and restored service.');
+});
+
+test('concurrent screenshot uploads are all persisted', function () {
+    Storage::fake('local');
+    $setup = voiceInterviewSetup();
+    $media = app(\App\Services\InterviewMediaService::class);
+
+    $media->storeScreenshot($setup['interview'], UploadedFile::fake()->image('one.jpg', 640, 360), 'random');
+    $media->storeScreenshot($setup['interview'], UploadedFile::fake()->image('two.jpg', 640, 360), 'random');
+    $media->storeScreenshot($setup['interview']->fresh(), UploadedFile::fake()->image('three.jpg', 640, 360), 'random');
+
+    expect($setup['interview']->fresh()->screenshots)->toHaveCount(3);
+});
+
+test('hr interview results include screenshot urls for completed voice interviews', function () {
+    Storage::fake('local');
+    $setup = voiceInterviewSetup();
+    $media = app(\App\Services\InterviewMediaService::class);
+
+    $media->storeScreenshot($setup['interview'], UploadedFile::fake()->image('face.jpg', 640, 360), 'session_start');
+    $setup['interview']->update([
+        'status' => 'completed',
+        'completed_at' => now(),
+    ]);
+
+    $payload = $setup['interview']->fresh()->toResultPayload(true);
+
+    expect($payload['screenshots'])->toHaveCount(1)
+        ->and($payload['screenshots'][0]['url'])->toBe('/interview-media/'.$setup['interview']->id.'/screenshots/0');
+
+    $this->actingAs($setup['hr'])
+        ->get(route('interview-results.show', $setup['interview']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('hr/InterviewResult')
+            ->has('interview.screenshots', 1)
+        );
+});
+
 test('hr can review the recording and outsiders cannot', function () {
     Storage::fake('local');
     $setup = voiceInterviewSetup();

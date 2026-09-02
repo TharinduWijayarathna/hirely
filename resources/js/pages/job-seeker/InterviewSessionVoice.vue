@@ -79,6 +79,7 @@ const {
     start: startCapture,
     takeScreenshot,
     stopAndUpload,
+    flushPendingUploads,
 } = useInterviewCapture({
     screenshotUrl: `/interviews/${props.interview.id}/screenshots`,
     recordingUrl: `/interviews/${props.interview.id}/recording`,
@@ -271,6 +272,10 @@ const startInterview = async () => {
     playSpeech(intro, () => speakCurrentQuestion());
 };
 
+function csrfToken(): string {
+    return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+}
+
 const submitAnswer = async (message: string) => {
     const question = currentText.value;
     const answer = message.trim();
@@ -293,46 +298,57 @@ const submitAnswer = async (message: string) => {
         { role: 'user', content: answer, timestamp: new Date().toISOString() },
     ];
 
-    router.post(
-        `/interviews/${props.interview.id}/follow-up`,
-        {
-            question,
-            answer,
-            answers: answers.value,
-        },
-        {
-            preserveState: true,
-            preserveScroll: true,
-            onSuccess: (page) => {
-                const updated = (page.props as { interview?: { questions?: InterviewQuestion[]; answers?: Record<string, string> } }).interview;
-                if (updated?.questions) {
-                    questions.value = updated.questions;
-                }
-                if (updated?.answers) {
-                    answers.value = { ...updated.answers };
-                }
-
-                isProcessing.value = false;
-
-                if (isLastQuestion.value) {
-                    void completeInterview();
-                    return;
-                }
-
-                currentIndex.value += 1;
-                speakCurrentQuestion();
+    try {
+        const response = await fetch(`/interviews/${props.interview.id}/follow-up`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken(),
+                'X-Requested-With': 'XMLHttpRequest',
+                Accept: 'application/json',
             },
-            onError: () => {
-                isProcessing.value = false;
-                if (!isLastQuestion.value) {
-                    currentIndex.value += 1;
-                    speakCurrentQuestion();
-                    return;
-                }
-                void completeInterview();
-            },
-        },
-    );
+            credentials: 'same-origin',
+            body: JSON.stringify({
+                question,
+                answer,
+                answers: answers.value,
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to save answer');
+        }
+
+        const updated = (await response.json()) as {
+            questions?: InterviewQuestion[];
+            answers?: Record<string, string>;
+        };
+
+        if (updated.questions) {
+            questions.value = updated.questions;
+        }
+        if (updated.answers) {
+            answers.value = { ...updated.answers };
+        }
+
+        isProcessing.value = false;
+
+        if (isLastQuestion.value) {
+            void completeInterview();
+            return;
+        }
+
+        currentIndex.value += 1;
+        speakCurrentQuestion();
+    } catch {
+        isProcessing.value = false;
+        if (!isLastQuestion.value) {
+            currentIndex.value += 1;
+            speakCurrentQuestion();
+            return;
+        }
+        void completeInterview();
+    }
 };
 
 const completeInterview = async () => {
@@ -343,6 +359,7 @@ const completeInterview = async () => {
 
     try {
         await stopAndUpload();
+        await flushPendingUploads();
     } catch {
         // Complete even if media upload fails.
     }

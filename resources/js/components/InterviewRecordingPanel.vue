@@ -27,7 +27,7 @@ defineProps<{
                 </figcaption>
             </figure>
         </div>
-        <p v-else class="text-sm text-muted-foreground">
+        <p v-else-if="!recordingUrl" class="text-sm text-muted-foreground">
             No screenshots yet. They appear here after the candidate completes a voice interview with camera access.
         </p>
     </div>
