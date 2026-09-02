@@ -383,19 +383,23 @@ Keep your responses natural and conversational.";
 
         $systemPrompt = 'You are an explainable interview evaluator. Score the candidate fairly. Return ONLY valid JSON: {"overall_score":0,"rationale":"","confidence":0.0,"strengths":[""],"weaknesses":[""],"dimensions":[{"name":"","score":0,"weight":1,"evidence":"short quote from the answer","comment":""}],"answers":[{"question":"","category":"","score":0,"feedback":"","evidence":""}]}. overall_score and dimension/answer scores are 0-100. confidence is 0-1. Include every criterion in dimensions: '.$criteriaList.'. No markdown.';
 
+        $response = null;
+
         try {
             $response = $this->makeRequest(
                 $systemPrompt,
                 "{$jobLine}Difficulty: {$difficulty}\nCriteria: {$criteriaList}\n\n{$transcript}",
-                1500,
-                true
+                8192,
+                true,
+                null,
+                max($this->timeout, 60),
             );
             $content = $this->responseText($response);
 
             if ($content !== null) {
-                $decoded = json_decode($this->stripMarkdown($content), true);
+                $decoded = $this->decodeJsonObject($content);
 
-                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                if (is_array($decoded)) {
                     return $this->normalizeEvaluation($decoded, $questions, $answers, $criteria);
                 }
             }
@@ -408,8 +412,12 @@ Keep your responses natural and conversational.";
             );
         }
 
+        if (data_get($response ?? null, 'candidates.0.finishReason') === 'MAX_TOKENS') {
+            throw new \RuntimeException('Gemini evaluation was cut off because the response was too long. Please try again.');
+        }
+
         throw new \RuntimeException(
-            $this->lastFailure ?: 'Gemini could not evaluate this interview. Check your API key and try again.',
+            $this->lastFailure ?: 'Gemini returned an invalid evaluation response. Please try again.',
         );
     }
 
@@ -428,8 +436,38 @@ Keep your responses natural and conversational.";
     protected function normalizeEvaluation(array $decoded, array $questions, array $answers, array $criteria): array
     {
         $dimensions = [];
+        $rawDimensions = $decoded['dimensions'] ?? [];
+
+        if (is_array($rawDimensions) && $rawDimensions !== [] && array_is_list($rawDimensions) === false) {
+            $converted = [];
+
+            foreach ($rawDimensions as $name => $value) {
+                if (is_array($value)) {
+                    $converted[] = [
+                        'name' => (string) ($value['name'] ?? $name),
+                        'score' => $value['score'] ?? 0,
+                        'weight' => $value['weight'] ?? 1,
+                        'evidence' => $value['evidence'] ?? '',
+                        'comment' => $value['comment'] ?? '',
+                    ];
+
+                    continue;
+                }
+
+                $converted[] = [
+                    'name' => (string) $name,
+                    'score' => $value,
+                    'weight' => 1,
+                    'evidence' => '',
+                    'comment' => '',
+                ];
+            }
+
+            $rawDimensions = $converted;
+        }
+
         foreach ($criteria as $name) {
-            $match = collect($decoded['dimensions'] ?? [])->first(
+            $match = collect($rawDimensions)->first(
                 fn ($dimension) => strcasecmp((string) ($dimension['name'] ?? ''), $name) === 0
             );
 
@@ -467,12 +505,32 @@ Keep your responses natural and conversational.";
         return [
             'overall_score' => $overall,
             'rationale' => (string) ($decoded['rationale'] ?? ''),
-            'confidence' => max(0, min(1, (float) ($decoded['confidence'] ?? 0.5))),
+            'confidence' => $this->normalizeConfidence($decoded['confidence'] ?? 0.5),
             'strengths' => array_values(array_filter($decoded['strengths'] ?? [])),
             'weaknesses' => array_values(array_filter($decoded['weaknesses'] ?? [])),
             'dimensions' => $dimensions,
             'answers' => $answerRows,
         ];
+    }
+
+    protected function normalizeConfidence(mixed $confidence): float
+    {
+        if (is_numeric($confidence)) {
+            $value = (float) $confidence;
+
+            return $value > 1 ? max(0, min(1, $value / 100)) : max(0, min(1, $value));
+        }
+
+        if (is_string($confidence)) {
+            return match (strtolower(trim($confidence))) {
+                'high', 'very high' => 0.9,
+                'medium', 'moderate' => 0.65,
+                'low' => 0.35,
+                default => 0.5,
+            };
+        }
+
+        return 0.5;
     }
 
     /**
@@ -524,8 +582,14 @@ Keep your responses natural and conversational.";
         ];
     }
 
-    protected function makeRequest(string $systemPrompt, string $userPrompt, int $maxTokens = 2000, bool $json = false, ?array $inlineFile = null): ?array
-    {
+    protected function makeRequest(
+        string $systemPrompt,
+        string $userPrompt,
+        int $maxTokens = 2000,
+        bool $json = false,
+        ?array $inlineFile = null,
+        ?int $timeout = null,
+    ): ?array {
         $parts = [];
 
         if ($inlineFile !== null && ($inlineFile['contents'] ?? '') !== '') {
@@ -550,7 +614,7 @@ Keep your responses natural and conversational.";
             $maxTokens,
             0.7,
             $json,
-            $inlineFile !== null ? $this->documentTimeout : $this->timeout,
+            $inlineFile !== null ? $this->documentTimeout : ($timeout ?? $this->timeout),
         );
     }
 
@@ -599,49 +663,33 @@ Keep your responses natural and conversational.";
             $payload['generationConfig']['responseMimeType'] = 'application/json';
         }
 
-        $attempts = [$payload];
+        try {
+            $response = Http::timeout($timeout)
+                ->connectTimeout(10)
+                ->acceptJson()
+                ->withHeaders(['x-goog-api-key' => $this->apiKey])
+                ->post("{$this->baseUrl}/models/{$this->model}:generateContent", $payload);
 
-        if (! $hasFile && preg_match('/(2\.5|3\.|thinking)/i', $this->model)) {
-            $withThinking = $payload;
-            $withThinking['generationConfig']['thinkingConfig'] = [
-                'thinkingBudget' => 0,
-            ];
-            $attempts = [$withThinking, $payload];
-        }
+            if ($response->successful()) {
+                $this->lastFailure = null;
 
-        foreach ($attempts as $index => $attemptPayload) {
-            try {
-                $response = Http::timeout($timeout)
-                    ->connectTimeout(10)
-                    ->acceptJson()
-                    ->withHeaders(['x-goog-api-key' => $this->apiKey])
-                    ->post("{$this->baseUrl}/models/{$this->model}:generateContent", $attemptPayload);
-
-                if ($response->successful()) {
-                    return $response->json();
-                }
-
-                $message = (string) data_get($response->json(), 'error.message', 'HTTP '.$response->status());
-                $this->lastFailure = mb_substr($message, 0, 180);
-
-                Log::error('Gemini API request failed', [
-                    'status' => $response->status(),
-                    'message' => $this->lastFailure,
-                    'model' => $this->model,
-                ]);
-
-                if ($response->status() === 400 && $index === 0 && count($attempts) > 1) {
-                    continue;
-                }
-            } catch (\Illuminate\Http\Client\ConnectionException $e) {
-                $this->lastFailure = "Gemini timed out after {$timeout}s while reading the file. Try a smaller PDF.";
-                Log::error('Gemini API request timed out', ['seconds' => $timeout, 'model' => $this->model]);
-            } catch (\Throwable $e) {
-                $this->lastFailure = 'Gemini request failed.';
-                Log::error('Gemini API request exception: '.$e->getMessage());
+                return $response->json();
             }
 
-            break;
+            $message = (string) data_get($response->json(), 'error.message', 'HTTP '.$response->status());
+            $this->lastFailure = mb_substr($message, 0, 180);
+
+            Log::error('Gemini API request failed', [
+                'status' => $response->status(),
+                'message' => $this->lastFailure,
+                'model' => $this->model,
+            ]);
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            $this->lastFailure = "Gemini timed out after {$timeout}s. Try again or use a smaller request.";
+            Log::error('Gemini API request timed out', ['seconds' => $timeout, 'model' => $this->model]);
+        } catch (\Throwable $e) {
+            $this->lastFailure = 'Gemini request failed.';
+            Log::error('Gemini API request exception: '.$e->getMessage());
         }
 
         return null;
