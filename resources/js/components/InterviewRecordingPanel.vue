@@ -7,7 +7,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Camera, Images } from 'lucide-vue-next';
+import { Camera, Images, Video } from 'lucide-vue-next';
 import { computed, ref } from 'vue';
 
 const props = defineProps<{
@@ -20,6 +20,7 @@ const props = defineProps<{
 }>();
 
 const galleryOpen = ref(false);
+const recordingOpen = ref(false);
 const activeIndex = ref(0);
 
 const screenshotCount = computed(() => props.screenshots?.length ?? 0);
@@ -56,38 +57,66 @@ const formatCapturedAt = (value?: string | null) => {
 </script>
 
 <template>
-    <div v-if="recordingUrl || screenshotCount > 0" class="rounded-xl border border-border bg-card p-4">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <div class="min-w-0">
-                <p class="text-sm font-medium">Interview media</p>
-                <p class="text-xs text-muted-foreground">
-                    Session recording and camera stills from the voice interview.
-                </p>
-            </div>
+    <div v-if="recordingUrl || screenshotCount > 0" class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
+        <div class="min-w-0">
+            <p class="text-sm font-medium">Interview media</p>
+            <p class="text-xs text-muted-foreground">
+                Recording and camera stills from the voice interview.
+            </p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+            <Button
+                v-if="recordingUrl"
+                variant="outline"
+                size="sm"
+                class="gap-2"
+                @click="recordingOpen = true"
+            >
+                <Video class="h-4 w-4" />
+                Play recording
+            </Button>
 
             <Button
                 v-if="screenshotCount > 0"
                 variant="outline"
                 size="sm"
-                class="shrink-0 gap-2"
+                class="gap-2"
                 @click="openGallery(0)"
             >
                 <Images class="h-4 w-4" />
-                View {{ screenshotCount }} screenshot{{ screenshotCount === 1 ? '' : 's' }}
+                {{ screenshotCount }} screenshot{{ screenshotCount === 1 ? '' : 's' }}
             </Button>
         </div>
-
-        <video
-            v-if="recordingUrl"
-            class="mt-3 w-full rounded-lg bg-black"
-            controls
-            :src="recordingUrl"
-        />
     </div>
 
     <p v-else class="text-sm text-muted-foreground">
         No interview media yet. Recording and screenshots appear after a voice interview with camera access.
     </p>
+
+    <Dialog v-model:open="recordingOpen">
+        <DialogContent class="max-w-3xl gap-0 overflow-hidden p-0">
+            <DialogHeader class="border-b border-border px-5 py-4">
+                <DialogTitle class="flex items-center gap-2 text-base">
+                    <Video class="h-4 w-4" />
+                    Session recording
+                </DialogTitle>
+                <DialogDescription>
+                    Full voice interview session captured from the candidate's camera and microphone.
+                </DialogDescription>
+            </DialogHeader>
+
+            <div class="p-5">
+                <video
+                    v-if="recordingUrl"
+                    class="w-full rounded-lg bg-black"
+                    controls
+                    autoplay
+                    :src="recordingUrl"
+                />
+            </div>
+        </DialogContent>
+    </Dialog>
 
     <Dialog v-model:open="galleryOpen">
         <DialogContent class="max-w-3xl gap-0 overflow-hidden p-0">
